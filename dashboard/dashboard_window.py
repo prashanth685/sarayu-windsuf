@@ -33,6 +33,7 @@ from select_project import SelectProjectWidget
 from create_project import CreateProjectWidget
 from project_structure import ProjectStructureWidget
 from dashboard.components.dc_settings import DCSettingsWindow
+from dashboard.components.broker_ip_settings import BrokerIPDialog
 import time
 import re
 from datetime import datetime
@@ -97,6 +98,7 @@ class DashboardWindow(QWidget):
         # Debounce maps to collapse rapid updates per feature instance
         self._debounce_timers = {}
         self._debounce_payloads = {}
+        self.broker_dialog = None  # Initialize broker dialog attribute
 
         self.initUI()
         self.deferred_initialization()
@@ -186,6 +188,7 @@ class DashboardWindow(QWidget):
         self.file_bar.save_triggered.connect(self.save_action)
         # self.file_bar.settings_triggered.connect(self.settings_action)
         self.file_bar.dc_settings_triggered.connect(self.show_dc_settings)
+        self.file_bar.broker_settings_triggered.connect(self.show_broker_settings)
         self.file_bar.refresh_triggered.connect(self.refresh_action)
         self.file_bar.exit_triggered.connect(self.close)
         main_layout.addWidget(self.file_bar)
@@ -1091,18 +1094,22 @@ class DashboardWindow(QWidget):
     def show_dc_settings(self):
         """Show the DC Settings window."""
         try:
-            # Close existing DC Settings window if open
-            for window in self.main_section.mdi_area.subWindowList():
-                if isinstance(window.widget(), DCSettingsWindow):
-                    window.close()
-            
-            # Create and show new DC Settings window
+            # Close existing DC settings window if any
+            if hasattr(self, 'dc_settings_window') and self.dc_settings_window is not None:
+                try:
+                    self.dc_settings_window.close()
+                    self.dc_settings_window.deleteLater()
+                except:
+                    pass
+                
+            # Create new window with MQTT handler
             if self.channel_count is not None:
                 # Close existing DC settings window if any
                 if hasattr(self, 'dc_settings_window') and self.dc_settings_window is not None:
                     try:
-                        self.dc_settings_window.close()
-                        self.dc_settings_window.deleteLater()
+                        self.dc_settings_window = None
+                        self.dc_settings_windows = set()
+                        self.broker_dialog = None
                     except:
                         pass
                 
@@ -1132,9 +1139,53 @@ class DashboardWindow(QWidget):
             logging.error(f"Error showing DC settings: {str(e)}")
             QMessageBox.critical(self, "Error", f"Failed to open DC settings: {str(e)}")
     
+    def show_broker_settings(self):
+        """Show the Broker Settings dialog."""
+        if not self.broker_dialog:
+            from dashboard.components.broker_ip_settings import BrokerIPDialog
+            # Load current settings
+            from mqtthandler import MQTTHandler
+            current_host, current_port = MQTTHandler.load_settings()
+            
+            self.broker_dialog = BrokerIPDialog(
+                self, 
+                current_host=current_host, 
+                current_port=current_port
+            )
+            self.broker_dialog.settings_updated.connect(self.on_broker_settings_updated)
+            self.broker_dialog.finished.connect(self.on_broker_dialog_closed)
+            
+        self.broker_dialog.show()
+        self.broker_dialog.raise_()
+        self.broker_dialog.activateWindow()
+    
+    def on_broker_settings_updated(self, host, port):
+        """Handle broker settings update."""
+        if self.mqtt_handler:
+            # Disconnect if connected
+            if self.mqtt_connected:
+                self.disconnect_mqtt()
+            
+            # Update MQTT handler with new settings
+            self.mqtt_handler.broker = host
+            self.mqtt_handler.port = port
+            
+            # Save settings using MQTTHandler's method
+            from mqtthandler import MQTTHandler
+            MQTTHandler.save_settings(host, port)
+            
+            # Reconnect if we were connected before
+            if self.current_project and not self.mqtt_connected:
+                self.connect_mqtt()
+    
+    def on_broker_dialog_closed(self):
+        """Clean up broker dialog reference."""
+        self.broker_dialog = None
+
     def on_dc_settings_closed(self, window):
         """Handle DC Settings window close event."""
-        # Any cleanup needed when DC Settings window is closed
+        if window in self.dc_settings_windows:
+            self.dc_settings_windows.remove(window)
         pass
     
     def settings_action(self):

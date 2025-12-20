@@ -150,12 +150,26 @@ class DCSettingsWindow(QMdiSubWindow):
                 logging.error(f"Error calculating ratio: {e}")
     
     def reset_values(self):
-        """Reset all input fields to zero."""
+        """Reset all input fields to zero and send reset command via MQTT."""
+        # Reset UI values
         for i in range(self.channel_count):
             spinbox = self.table.cellWidget(i, 2).findChild(QDoubleSpinBox)
             if spinbox:
                 spinbox.setValue(0.0)
             self.table.item(i, 3).setText("1.000")
+        
+        # Send reset command via MQTT
+        if self.mqtt_handler:
+            try:
+                # Create a reset command payload
+                reset_payload = "$ResetCalibrationData#"  # Reset all channels to 1.0
+                self.mqtt_handler.publish("dccalibrated/data", reset_payload)
+                QMessageBox.information(self, "Success", "Calibration reset command sent successfully!")
+            except Exception as e:
+                logging.error(f"Error sending reset command: {e}")
+                QMessageBox.critical(self, "Error", f"Failed to send reset command: {e}")
+        else:
+            QMessageBox.warning(self, "Error", "MQTT handler not available")
     
     def send_calibration(self):
         """Send calibration data via MQTT."""
@@ -174,7 +188,11 @@ class DCSettingsWindow(QMdiSubWindow):
                 ratio_values.append(ratio)
             
             # Create a simple dictionary with just the ratio values
-            payload = {"calibrated vallues": ratio_values}
+            # payload = "$DC_CalibratedData:" + ", ".join(map(str, ratio_values)) + "#"
+            payload = "$ DC_CalibratedData: " + ",".join(map(str, ratio_values)) + "#"
+
+
+
             
             # Convert to JSON and publish
             self.mqtt_handler.publish("dccalibrated/data", payload)

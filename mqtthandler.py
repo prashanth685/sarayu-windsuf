@@ -20,12 +20,42 @@ class MQTTHandler(QObject):
     gap_values_received = pyqtSignal(str, str, list)
     measured_dc_values = pyqtSignal(list)  # Signal for measured DC values (list of floats)
 
-    def __init__(self, db, project_name, broker="192.168.1.231", port=1883):
+    @staticmethod
+    def load_settings():
+        """Load saved broker settings."""
+        try:
+            import os
+            import json
+            settings_file = os.path.join(os.path.expanduser("~"), ".sarayu", "mqtt_settings.json")
+            if os.path.exists(settings_file):
+                with open(settings_file, 'r') as f:
+                    settings = json.load(f)
+                    return settings.get("broker_host", ""), settings.get("broker_port", 1883)
+        except Exception as e:
+            print(f"Error loading MQTT settings: {e}")
+        return "192.168.1.231", 1883  # Default values
+
+    @staticmethod
+    def save_settings(broker_host, broker_port):
+        """Save broker settings to config file."""
+        try:
+            import os
+            import json
+            settings_file = os.path.join(os.path.expanduser("~"), ".sarayu", "mqtt_settings.json")
+            settings = {"broker_host": broker_host, "broker_port": broker_port}
+            with open(settings_file, 'w') as f:
+                json.dump(settings, f)
+        except Exception as e:
+            print(f"Error saving MQTT settings: {e}")
+
+    def __init__(self, db, project_name, broker=None, port=None):
         super().__init__()
         self.db = db
         self.project_name = project_name
-        self.broker = broker
-        self.port = port
+        # Load saved settings or use defaults
+        saved_host, saved_port = self.load_settings()
+        self.broker = broker if broker is not None else saved_host
+        self.port = port if port is not None else saved_port
         self.client = None
         self.connected = False
         self.subscribed_topics = []
