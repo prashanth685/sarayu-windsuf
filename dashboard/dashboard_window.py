@@ -99,6 +99,7 @@ class DashboardWindow(QWidget):
         self._debounce_timers = {}
         self._debounce_payloads = {}
         self.broker_dialog = None  # Initialize broker dialog attribute
+        self.dc_settings_windows = set()  # Track all DC settings windows
 
         self.initUI()
         self.deferred_initialization()
@@ -1101,20 +1102,11 @@ class DashboardWindow(QWidget):
                     self.dc_settings_window.deleteLater()
                 except:
                     pass
-                
+            self.dc_settings_windows.clear()
+            
             # Create new window with MQTT handler
             if self.channel_count is not None:
-                # Close existing DC settings window if any
-                if hasattr(self, 'dc_settings_window') and self.dc_settings_window is not None:
-                    try:
-                        self.dc_settings_window = None
-                        self.dc_settings_windows = set()
-                        self.broker_dialog = None
-                    except:
-                        pass
-                
-                # Create new window with MQTT handler
-                self.dc_settings_window = DCSettingsWindow(
+                dc_settings_window = DCSettingsWindow(
                     self, 
                     channel_count=self.channel_count,
                     mqtt_handler=self.mqtt_handler if hasattr(self, 'mqtt_handler') else None
@@ -1122,14 +1114,17 @@ class DashboardWindow(QWidget):
                 
                 # Connect the MQTTHandler's measured_dc_values signal to the DC window
                 if hasattr(self, 'mqtt_handler') and self.mqtt_handler is not None:
-                    self.mqtt_handler.measured_dc_values.connect(self.dc_settings_window.update_measured_dc_values)
+                    self.mqtt_handler.measured_dc_values.connect(dc_settings_window.update_measured_dc_values)
                 
                 # Add to MDI area and show
-                sub_window = self.main_section.mdi_area.addSubWindow(self.dc_settings_window)
+                sub_window = self.main_section.mdi_area.addSubWindow(dc_settings_window)
                 sub_window.setWindowTitle("DC Settings")
                 
+                # Store the window reference
+                self.dc_settings_windows.add(dc_settings_window)
+                
                 # Connect the closed signal
-                self.dc_settings_window.closed.connect(lambda: self.on_dc_settings_closed(self.dc_settings_window))
+                dc_settings_window.closed.connect(lambda: self.on_dc_settings_closed(dc_settings_window))
                 
                 # Show the window
                 sub_window.showMaximized()
@@ -1184,9 +1179,22 @@ class DashboardWindow(QWidget):
 
     def on_dc_settings_closed(self, window):
         """Handle DC Settings window close event."""
-        if window in self.dc_settings_windows:
-            self.dc_settings_windows.remove(window)
-        pass
+        try:
+            if window in self.dc_settings_windows:
+                # Disconnect signals to prevent any callbacks during cleanup
+                if hasattr(self, 'mqtt_handler') and self.mqtt_handler is not None:
+                    try:
+                        self.mqtt_handler.measured_dc_values.disconnect(window.update_measured_dc_values)
+                    except:
+                        pass
+                
+                # Remove from tracking set
+                self.dc_settings_windows.discard(window)
+                
+                # Clean up the window
+                window.deleteLater()
+        except Exception as e:
+            logging.error(f"Error closing DC settings window: {str(e)}")
     
     def settings_action(self):
         QMessageBox.information(self, "Settings", "Settings dialog will be implemented here.")

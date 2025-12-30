@@ -1,10 +1,36 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, 
                             QTableWidgetItem, QHeaderView, QPushButton, 
-                            QMessageBox, QMdiSubWindow, QLabel, QLineEdit, QDoubleSpinBox)
+                            QMessageBox, QMdiSubWindow, QLabel, QLineEdit, QDoubleSpinBox, QApplication)
 from PyQt5.QtCore import Qt, pyqtSignal
 import logging
 import json
 from datetime import datetime
+
+# Set style for message boxes
+message_box_style = """
+    QMessageBox {
+        background-color: #000000;
+        color: #ffffff;
+    }
+    QMessageBox QLabel {
+        color: #ffffff;
+    }
+    QMessageBox QPushButton {
+        background-color: #000000;
+        color: #ffffff;
+        border: 1px solid #5a5a5a;
+        padding: 5px 15px;
+        border-radius: 3px;
+    }
+    QMessageBox QPushButton:hover {
+        background-color: #4a4a4a;
+    }
+    QMessageBox QPushButton:pressed {
+        background-color: #2a2a2a;
+    }
+"""
+
+# The style will be applied when DCSettingsWindow is initialized
 
 class DCSettingsWindow(QMdiSubWindow):
     """
@@ -17,7 +43,15 @@ class DCSettingsWindow(QMdiSubWindow):
         self.setWindowTitle("DC Calibration")
         self.channel_count = channel_count
         self.mqtt_handler = mqtt_handler
-        self.setMinimumSize(700, 500)
+        self.setMinimumSize(900, 650)
+        
+        # Apply the style to all QMessageBox instances
+        app = QApplication.instance()
+        if app:
+            app.setStyleSheet(app.styleSheet() + message_box_style)
+        
+        # Set the style for message boxes in this window
+        self.setStyleSheet(self.styleSheet() + message_box_style)
         
         # Create main widget and layout
         self.main_widget = QWidget()
@@ -26,12 +60,12 @@ class DCSettingsWindow(QMdiSubWindow):
         
         # Add title
         title = QLabel("DC Calibration")
-        title.setStyleSheet("font-size: 18px; font-weight: bold; margin-bottom: 15px;")
+        title.setStyleSheet("font-size: 24px; font-weight: bold; margin: 20px 0;")
         self.layout.addWidget(title, alignment=Qt.AlignCenter)
         
         # Add description
         description = QLabel("Enter actual DC values and click 'Send' to calibrate")
-        description.setStyleSheet("font-size: 12px; color: #666; margin-bottom: 15px;")
+        description.setStyleSheet("font-size: 16px; color: #666; margin-bottom: 25px;")
         self.layout.addWidget(description, alignment=Qt.AlignCenter)
         
         # Create table
@@ -40,20 +74,79 @@ class DCSettingsWindow(QMdiSubWindow):
         # Add buttons
         self.button_layout = QHBoxLayout()
         
+        # Style for buttons
+        button_style = """
+            QPushButton {
+                padding: 10px 24px;
+                font-size: 14px;
+                border: none;
+                border-radius: 4px;
+                min-width: 120px;
+                margin: 0 5px;
+            }
+            QPushButton:hover {
+                opacity: 0.9;
+            }
+            QPushButton:pressed {
+                padding-top: 11px;
+                padding-bottom: 9px;
+            }
+        """
+        
         self.reset_button = QPushButton("Reset")
-        self.reset_button.setStyleSheet("background-color: #f0ad4e; color: white; padding: 8px 16px;")
+        self.reset_button.setStyleSheet(button_style + """
+            QPushButton {
+                background-color: #f0ad4e;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #ec971f;
+            }
+        """)
         self.reset_button.clicked.connect(self.reset_values)
         self.button_layout.addWidget(self.reset_button)
         
         self.button_layout.addStretch()
         
+        # Add Calculate button
+        self.calculate_button = QPushButton("Calculate")
+        self.calculate_button.setStyleSheet(button_style + """
+            QPushButton {
+                background-color: #5bc0de;
+                color: white;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #46b8da;
+            }
+        """)
+        self.calculate_button.clicked.connect(self.calculate_ratio)
+        self.button_layout.addWidget(self.calculate_button)
+        
         self.send_button = QPushButton("Send Calibration")
-        self.send_button.setStyleSheet("background-color: #5cb85c; color: white; font-weight: bold; padding: 8px 16px;")
+        self.send_button.setStyleSheet(button_style + """
+            QPushButton {
+                background-color: #5cb85c;
+                color: white;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #4cae4c;
+            }
+        """)
         self.send_button.clicked.connect(self.send_calibration)
         self.button_layout.addWidget(self.send_button)
         
         self.close_button = QPushButton("Close")
-        self.close_button.setStyleSheet("padding: 8px 16px;")
+        self.close_button.setStyleSheet(button_style + """
+            QPushButton {
+                background-color: #f5f5f5;
+                border: 1px solid #ddd;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+        """)
         self.close_button.clicked.connect(self.close)
         self.button_layout.addWidget(self.close_button)
         
@@ -76,10 +169,10 @@ class DCSettingsWindow(QMdiSubWindow):
         self.table.setRowCount(self.channel_count)
         
         # Set column widths
-        self.table.setColumnWidth(0, 100)
-        self.table.setColumnWidth(1, 150)
-        self.table.setColumnWidth(2, 150)
-        self.table.setColumnWidth(3, 150)
+        self.table.setColumnWidth(0, 150)  # Increased from 100
+        self.table.setColumnWidth(1, 200)  # Increased from 150
+        self.table.setColumnWidth(2, 200)  # Increased from 150
+        self.table.setColumnWidth(3, 200)  # Increased from 150
         
         # Populate channel numbers
         for i in range(self.channel_count):
@@ -98,15 +191,50 @@ class DCSettingsWindow(QMdiSubWindow):
             # Actual DC (editable spinbox)
             actual_widget = QWidget()
             actual_layout = QHBoxLayout(actual_widget)
-            actual_layout.setContentsMargins(5, 2, 5, 2)
+            actual_layout.setContentsMargins(5, 2, 5, 2)  # Reduced margins for better fit
             actual_spinbox = QDoubleSpinBox()
             actual_spinbox.setRange(-1000.0, 1000.0)
             actual_spinbox.setDecimals(3)
             actual_spinbox.setValue(0.0)
             actual_spinbox.setSingleStep(0.1)
-            actual_spinbox.valueChanged.connect(self.calculate_ratio)
+            actual_spinbox.setButtonSymbols(QDoubleSpinBox.UpDownArrows)
+            actual_spinbox.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            actual_spinbox.setStyleSheet("""
+                QDoubleSpinBox {
+                    padding: 5px 8px;
+                    font-size: 14px;
+                    min-width: 120px;
+                    max-width: 180px;
+                    height: 30px;
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                    background: white;
+                }
+                QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {
+                    width: 20px;
+                    border-left: 1px solid #ddd;
+                }
+                QDoubleSpinBox::up-button {
+                    subcontrol-position: right top;
+                    subcontrol-origin: border;
+                    height: 14px;
+                }
+                QDoubleSpinBox::down-button {
+                    subcontrol-position: right bottom;
+                    subcontrol-origin: border;
+                    height: 14px;
+                }
+                QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow {
+                    width: 8px;
+                    height: 8px;
+                }
+            """)
+            # Remove the automatic calculation on value change
+            # actual_spinbox.valueChanged.connect(self.calculate_ratio)
             actual_layout.addWidget(actual_spinbox)
-            actual_layout.setAlignment(Qt.AlignRight)
+            actual_layout.setContentsMargins(15, 0, 15, 0)  # Add horizontal padding
+            actual_layout.setSpacing(0)
+            actual_widget.setLayout(actual_layout)
             self.table.setCellWidget(i, 2, actual_widget)
             
             # Ratio (read-only)
@@ -122,12 +250,42 @@ class DCSettingsWindow(QMdiSubWindow):
         header.setSectionResizeMode(2, QHeaderView.Fixed)
         header.setSectionResizeMode(3, QHeaderView.Fixed)
         self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(50)  # Increased row height
         self.table.setAlternatingRowColors(True)
+        
+        # Apply table styles
+        self.table.setStyleSheet("""
+            QTableWidget {
+                font-size: 14px;
+                gridline-color: #e0e0e0;
+                selection-background-color: #e6f2ff;
+            }
+            QHeaderView::section {
+                background-color: #f0f0f0;
+                padding: 8px;
+                border: 1px solid #d0d0d0;
+                font-size: 14px;
+                font-weight: bold;
+            }
+            QTableWidget::item {
+                padding: 8px;
+            }
+            QDoubleSpinBox {
+                padding: 6px;
+                font-size: 14px;
+                min-width: 120px;
+            }
+        """)
         
         self.layout.addWidget(self.table)
     
-    def calculate_ratio(self):
-        """Calculate and update the calibration ratio (Actual/Measured)."""
+    def calculate_ratio(self, force_update=False):
+        """
+        Calculate the calibration ratio (Actual/Measured) and update the table.
+        
+        Args:
+            force_update: If True, will update the ratio column. If False, will only calculate without updating.
+        """
         for i in range(self.channel_count):
             measured_text = self.table.item(i, 1).text()
             try:
@@ -140,14 +298,19 @@ class DCSettingsWindow(QMdiSubWindow):
                 else:
                     ratio = 1.0 if actual == 0 else float('inf')
                 
-                # Update ratio column
-                ratio_item = self.table.item(i, 3)
-                if abs(ratio) < 1000:  # Prevent display of very large numbers
-                    ratio_item.setText(f"{ratio:.6f}")
-                else:
-                    ratio_item.setText("N/A")
+                # Only update the ratio column if force_update is True
+                if force_update:
+                    ratio_item = self.table.item(i, 3)
+                    if abs(ratio) < 1000:  # Prevent display of very large numbers
+                        ratio_item.setText(f"{ratio:.6f}")
+                    else:
+                        ratio_item.setText("N/A")
+                
+                return ratio
+                
             except (ValueError, AttributeError) as e:
                 logging.error(f"Error calculating ratio: {e}")
+                return None
     
     def reset_values(self):
         """Reset all input fields to zero and send reset command via MQTT."""
@@ -189,7 +352,7 @@ class DCSettingsWindow(QMdiSubWindow):
             
             # Create a simple dictionary with just the ratio values
             # payload = "$DC_CalibratedData:" + ", ".join(map(str, ratio_values)) + "#"
-            payload = "$ DC_CalibratedData: " + ",".join(map(str, ratio_values)) + "#"
+            payload = "$DC_CalibratedData:" + ",".join(map(str, ratio_values)) + "#"
 
 
 

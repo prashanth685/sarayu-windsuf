@@ -26,15 +26,17 @@ class BodePlotFeature:
         self.scaling_factor = 3.3 / 65535.0  # Voltage scaling for ADC
         self.colors = {
             'amplitude': (0, 0, 255),  # Blue
-            'phase': (255, 0, 0)       # Red
+            'phase': (255, 0, 0),      # Red
+            '1x_amplitude': (0, 128, 0),  # Green for 1x amplitude
+            '1x_phase': (255, 165, 0)     # Orange for 1x phase
         }
         self.init_data()
         self.init_ui()
-        if hasattr(self.parent, 'channel_selected'):
-            self.parent.channel_selected.connect(self.on_channel_selected)
+        if hasattr(self.parent, 'tree_view') and hasattr(self.parent.tree_view, 'channel_selected'):
+            self.parent.tree_view.channel_selected.connect(self.on_channel_selected)
             self.log_info("Connected to channel_selected signal")
         else:
-            self.log_error("Parent does not have channel_selected signal")
+            self.log_error("Parent tree_view does not have channel_selected signal")
 
     def init_data(self):
         try:
@@ -104,13 +106,22 @@ class BodePlotFeature:
             amp_plot.setBackground('w')
             amp_plot.showGrid(x=True, y=True)
             amp_plot.setLabel('bottom', 'Frequency (Hz)')
-            amp_plot.setLabel('left', 'Magnitude (dB)')
-            amp_plot.setTitle(f"Magnitude vs Frequency - {ch_name}")
+            amp_plot.setLabel('left', 'Amplitude')
+            amp_plot.setTitle(f"Amplitude vs Frequency - {ch_name}")
             amp_plot.addLegend()
             amp_plot.setLogMode(x=True, y=False)  # Logarithmic frequency axis
-            amp_line = amp_plot.plot([], [], pen=pg.mkPen(color=self.colors['amplitude'], width=2), name=ch_name)
+            
+            # Main amplitude line
+            amp_line = amp_plot.plot([], [], pen=pg.mkPen(color=self.colors['amplitude'], width=2), )
+            # 1x amplitude points
+            amp_1x_points = pg.ScatterPlotItem(pen=pg.mkPen(color=self.colors['1x_amplitude'], width=2), 
+                                             brush=pg.mkBrush(self.colors['1x_amplitude']), 
+                                             size=10, symbol='o', name='1x Amplitude')
+            amp_plot.addItem(amp_1x_points)
+            
             self.plot_widgets[f"{ch_name}_amp"] = amp_plot
             self.plots[f"{ch_name}_amp"] = amp_line
+            self.plots[f"{ch_name}_amp_1x"] = amp_1x_points
             channel_layout.addWidget(amp_plot)
 
             # Phase Plot
@@ -122,9 +133,18 @@ class BodePlotFeature:
             phase_plot.setTitle(f"Phase vs Frequency - {ch_name}")
             phase_plot.addLegend()
             phase_plot.setLogMode(x=True, y=False)  # Logarithmic frequency axis
-            phase_line = phase_plot.plot([], [], pen=pg.mkPen(color=self.colors['phase'], width=2), name=ch_name)
+            
+            # Main phase line
+            phase_line = phase_plot.plot([], [], pen=pg.mkPen(color=self.colors['phase'], width=2))
+            # 1x phase points
+            phase_1x_points = pg.ScatterPlotItem(pen=pg.mkPen(color=self.colors['1x_phase'], width=2), 
+                                               brush=pg.mkBrush(self.colors['1x_phase']), 
+                                               size=10, symbol='o', name='1x Phase')
+            phase_plot.addItem(phase_1x_points)
+            
             self.plot_widgets[f"{ch_name}_phase"] = phase_plot
             self.plots[f"{ch_name}_phase"] = phase_line
+            self.plots[f"{ch_name}_phase_1x"] = phase_1x_points
             channel_layout.addWidget(phase_plot)
 
             self.plot_widgets[f"{ch_name}_widget"] = channel_widget
@@ -133,6 +153,9 @@ class BodePlotFeature:
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_plots)
         self.update_timer.start(1000)
+        
+        # Initialize visibility for the selected channel
+        self.update_visible_plots()
         self.log_info("Initialized BodePlotFeature UI")
 
     def on_channel_selected(self, model_name, channel_name):
@@ -149,6 +172,35 @@ class BodePlotFeature:
         self.update_visible_plots()
         self.update_plots()
 
+    def get_1x_data_from_tabular(self, channel_name):
+        """Retrieve 1x amplitude and phase data from the tabular view."""
+        try:
+            # Find the tabular view instance in the parent's features
+            for feature_name, feature in self.parent.features.items():
+                if 'tabular' in feature_name.lower():
+                    tabular_view = feature
+                    if hasattr(tabular_view, 'one_x_amps') and hasattr(tabular_view, 'one_x_phases'):
+                        channel_idx = self.channel_names.index(channel_name) if channel_name in self.channel_names else 0
+                        if (channel_idx < len(tabular_view.one_x_amps) and 
+                            channel_idx < len(tabular_view.one_x_phases) and
+                            tabular_view.one_x_amps[channel_idx] and 
+                            tabular_view.one_x_phases[channel_idx]):
+                            
+                            # Get the most recent 1x amplitude and phase values
+                            one_x_amp = tabular_view.one_x_amps[channel_idx][-1] if tabular_view.one_x_amps[channel_idx] else 0
+                            one_x_phase = tabular_view.one_x_phases[channel_idx][-1] if tabular_view.one_x_phases[channel_idx] else 0
+                            
+                            # Get the corresponding frequency (RPM/60)
+                            rpm = 0
+                            if hasattr(tabular_view, 'average_frequency') and tabular_view.average_frequency:
+                                rpm = tabular_view.average_frequency[channel_idx] if channel_idx < len(tabular_view.average_frequency) else 0
+                            freq_hz = rpm / 60.0 if rpm > 0 else 0
+                            
+                            return freq_hz, one_x_amp, one_x_phase
+        except Exception as e:
+            self.log_error(f"Error getting 1x data from tabular view: {str(e)}")
+        return None, 0, 0
+
     def update_visible_plots(self):
         try:
             for ch_name in self.channel_names:
@@ -163,6 +215,7 @@ class BodePlotFeature:
             self.log_info(f"Updated visible plots for channel: {self.selected_channel}")
         except Exception as e:
             self.log_error(f"Error updating visible plots: {str(e)}")
+
 
     def log_info(self, message):
         logging.info(message)
@@ -336,6 +389,21 @@ class BodePlotFeature:
             vb.setXRange(np.log10(max(0.1, x_min)) - 0.1, np.log10(x_max) + 0.1)
             vb.setYRange(y_min, y_max)
             self.log_info(f"Updated phase plot for {ch_name}: x_range={x_min}-{x_max}, y_range={y_min}-{y_max}")
+
+            # Get 1x data from tabular view and update scatter plots
+            freq_1x, one_x_amp, one_x_phase = self.get_1x_data_from_tabular(ch_name)
+            
+            # Update 1x amplitude point if valid data is available
+            if freq_1x and freq_1x > 0 and one_x_amp > 0:
+                amp_1x_points = self.plots.get(f"{ch_name}_amp_1x")
+                if amp_1x_points:
+                    amp_1x_points.setData([freq_1x], [one_x_amp])
+
+            # Update 1x phase point if valid data is available
+            if freq_1x and freq_1x > 0 and one_x_phase != 0:
+                phase_1x_points = self.plots.get(f"{ch_name}_phase_1x")
+                if phase_1x_points:
+                    phase_1x_points.setData([freq_1x], [one_x_phase])
 
             self.error_label.setVisible(False)
         except Exception as e:
