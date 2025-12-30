@@ -147,7 +147,7 @@ class TabularViewFeature:
         # Calibration constants to match Time View
         self.scaling_factor = 3.3 / 65535.0
         self.off_set = 32768
-        # Latest gap voltages from header[15..28] scaled by 1/100 (signed int16)
+        # Latest gap voltages from header[17..28] (already scaled by 1/100, signed int16)
         self.gap_voltages = []
         # Headers: keep stable internal keys and customizable display labels for NX columns
         self.internal_headers = [
@@ -1226,7 +1226,7 @@ class TabularViewFeature:
                     "Unit": self._format_unit_display(channel_name),
                     "DateTime": datetime.now().strftime("%d-%b-%Y %I:%M:%S %p"),
                     "RPM": f"{int(round(self.average_frequency[ch] * 60.0))}" if self.average_frequency[ch] > 0 else "0",
-                    "Gap": (f"{float(self.gap_voltages[ch]):.2f}" if isinstance(self.gap_voltages, (list, tuple)) and ch < len(self.gap_voltages) and self.gap_voltages[ch] is not None else "0.00"),
+                    "Gap": (f"{float(self.gap_voltages[ch]):.3f}" if isinstance(self.gap_voltages, (list, tuple)) and ch < len(self.gap_voltages) and self.gap_voltages[ch] is not None else "0.000"),
                     "Direct": self.format_direct_bandpass_value(avg_direct, unit),
                     "Bandpass": self.format_direct_bandpass_value(avg_bandpass, unit),
                     "1xAmp": self.format_direct_value([avg_1xa], unit),
@@ -1554,7 +1554,7 @@ class TabularViewFeature:
                     "Unit": self._format_unit_display(channel_name),
                     "DateTime": now_str,
                     "RPM": f"{int(round(self.average_frequency[ch] * 60.0))}" if self.average_frequency[ch] > 0 else "0",
-                    "Gap": (f"{float(self.gap_voltages[ch]):.2f}" if isinstance(self.gap_voltages, (list, tuple)) and ch < len(self.gap_voltages) and self.gap_voltages[ch] is not None else "0.00"),
+                    "Gap": (f"{float(self.gap_voltages[ch]):.3f}" if isinstance(self.gap_voltages, (list, tuple)) and ch < len(self.gap_voltages) and self.gap_voltages[ch] is not None else "0.000"),
                     "Direct": self.format_direct_bandpass_value(direct_val, unit),
                     "Bandpass": self.format_direct_bandpass_value(bandpass_val, unit),
                     "1xAmp": self.format_direct_value([one_xa], unit),
@@ -1687,7 +1687,7 @@ class TabularViewFeature:
         return self.widget
 
     def set_gap_voltages(self, gaps):
-        """Update the latest gap voltages read from MQTT header[15..28] (already scaled by 1/100, signed)."""
+        """Update the latest gap voltages read from MQTT header[17..28] (already scaled by 1/100, signed)."""
         try:
             if not isinstance(gaps, (list, tuple)):
                 return

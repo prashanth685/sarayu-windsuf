@@ -30,13 +30,27 @@ class BodePlotFeature:
             '1x_amplitude': (0, 128, 0),  # Green for 1x amplitude
             '1x_phase': (255, 165, 0)     # Orange for 1x phase
         }
-        self.init_data()
+        
+        # Initialize UI first for instant feedback
         self.init_ui()
+        
+        # Connect signals
         if hasattr(self.parent, 'tree_view') and hasattr(self.parent.tree_view, 'channel_selected'):
             self.parent.tree_view.channel_selected.connect(self.on_channel_selected)
             self.log_info("Connected to channel_selected signal")
         else:
             self.log_error("Parent tree_view does not have channel_selected signal")
+        
+        # Initialize data in background
+        QTimer.singleShot(100, self.init_data_async)
+        
+    def init_data_async(self):
+        """Initialize data in a non-blocking way"""
+        self.init_data()
+        # Update UI after data is loaded
+        if self.selected_channel:
+            self.update_visible_plots()
+            self.update_plots()
 
     def init_data(self):
         try:
@@ -46,54 +60,169 @@ class BodePlotFeature:
             if not project_data or "models" not in project_data:
                 self.log_error(f"Project {self.project_name} or models not found.")
                 return
+                
             model = next((m for m in project_data["models"] if m["name"] == self.model_name), None)
             if not model or not model.get("tagName"):
                 self.log_error(f"TagName not found for Model: {self.model_name}")
                 return
+                
             self.tag_name = model["tagName"]
             self.channel_names = [c["channelName"] for c in model.get("channels", [])]
             self.channel_indices = {name: idx for idx, name in enumerate(self.channel_names)}
+            
             if not self.channel_names:
                 self.log_error(f"No channels found in model {self.model_name}.")
                 return
+                
             for ch_name in self.channel_names:
                 self.data[ch_name] = {
                     'frequencies': [],
                     'amplitudes': [],
                     'phases': []
                 }
-            self.log_info(f"Initialized BodePlotFeature for Model: {self.model_name}, Tag: {self.tag_name}, Channels: {self.channel_names}")
+                
+            # Initialize plots for all channels
+            self.init_plots()
+            
+            # Update the UI to show the content and hide the placeholder
+            self.placeholder.setVisible(False)
+            self.content.setVisible(True)
+            
+            self.log_info(f"Initialized BodePlotFeature for Model: {self.model_name}, Tag: {self.tag_name}")
+            
             if self.selected_channel and self.selected_channel in self.channel_names:
                 self.log_info(f"Initial channel set to: {self.selected_channel}")
             else:
                 self.selected_channel = self.channel_names[0] if self.channel_names else None
                 self.log_info(f"Initial channel set to: {self.selected_channel}")
+                
+            # Start the update timer
+            self.update_timer = QTimer()
+            self.update_timer.timeout.connect(self.update_plots)
+            self.update_timer.start(1000)
+            
         except Exception as e:
             self.log_error(f"Error initializing BodePlotFeature: {str(e)}")
+            self.placeholder.setText(f"Error: {str(e)}")
+    
+    def init_plots(self):
+        """Initialize plot widgets for all channels"""
+        for ch_name in self.channel_names:
+            self._init_channel_plots(ch_name)
+        
+        # Initialize visibility for the selected channel
+        self.update_visible_plots()
+        self.log_info("Initialized BodePlotFeature UI")
+    
+    def _init_channel_plots(self, ch_name):
+        """Initialize plot widgets for a single channel"""
+        channel_widget = QWidget()
+        channel_layout = QVBoxLayout()
+        channel_layout.setContentsMargins(0, 0, 0, 0)
+        channel_layout.setSpacing(2)
+        channel_widget.setLayout(channel_layout)
+        channel_widget.setVisible(ch_name == self.selected_channel)
+
+        # Amplitude Plot (Magnitude vs Frequency)
+        amp_plot = pg.PlotWidget()
+        amp_plot.setBackground('w')
+        amp_plot.showGrid(x=True, y=True)
+        amp_plot.setLabel('bottom', 'Frequency (Hz)')
+        amp_plot.setLabel('left', 'Amplitude')
+        amp_plot.setTitle(f"Amplitude vs Frequency - {ch_name}")
+        amp_plot.addLegend()
+        amp_plot.setLogMode(x=True, y=False)
+        
+        # Main amplitude line
+        amp_line = amp_plot.plot([], [], pen=pg.mkPen(color=self.colors['amplitude'], width=1.5))
+        
+        # 1x amplitude points
+        amp_1x_points = pg.ScatterPlotItem(
+            pen=pg.mkPen(color=self.colors['1x_amplitude'], width=1.5), 
+            brush=pg.mkBrush(self.colors['1x_amplitude']), 
+            size=8, symbol='o', name='1x Amplitude'
+        )
+        amp_plot.addItem(amp_1x_points)
+        
+        self.plot_widgets[f"{ch_name}_amp"] = amp_plot
+        self.plots[f"{ch_name}_amp"] = amp_line
+        self.plots[f"{ch_name}_amp_1x"] = amp_1x_points
+        channel_layout.addWidget(amp_plot)
+
+        # Phase Plot
+        phase_plot = pg.PlotWidget()
+        phase_plot.setBackground('w')
+        phase_plot.showGrid(x=True, y=True)
+        phase_plot.setLabel('bottom', 'Frequency (Hz)')
+        phase_plot.setLabel('left', 'Phase (deg)')
+        phase_plot.setTitle(f"Phase vs Frequency - {ch_name}")
+        phase_plot.addLegend()
+        phase_plot.setLogMode(x=True, y=False)
+        
+        # Main phase line
+        phase_line = phase_plot.plot([], [], pen=pg.mkPen(color=self.colors['phase'], width=1.5))
+        
+        # 1x phase points
+        phase_1x_points = pg.ScatterPlotItem(
+            pen=pg.mkPen(color=self.colors['1x_phase'], width=1.5), 
+            brush=pg.mkBrush(self.colors['1x_phase']), 
+            size=8, symbol='o', name='1x Phase'
+        )
+        phase_plot.addItem(phase_1x_points)
+        
+        self.plot_widgets[f"{ch_name}_phase"] = phase_plot
+        self.plots[f"{ch_name}_phase"] = phase_line
+        self.plots[f"{ch_name}_phase_1x"] = phase_1x_points
+        channel_layout.addWidget(phase_plot)
+
+        self.plot_widgets[f"{ch_name}_widget"] = channel_widget
+        self.plot_layout.addWidget(channel_widget)
 
     def init_ui(self):
         self.widget = QWidget()
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(2, 2, 2, 2)  # Reduce margins for more space
+        main_layout.setSpacing(2)  # Reduce spacing between widgets
         self.widget.setLayout(main_layout)
 
+        # Create a placeholder widget that will be shown immediately
+        self.placeholder = QLabel("Loading Bode Plot...")
+        self.placeholder.setAlignment(pg.QtCore.Qt.AlignCenter)
+        main_layout.addWidget(self.placeholder)
+        
+        # Create the actual content that will be shown after initialization
+        self.content = QWidget()
+        content_layout = QVBoxLayout()
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(2)
+        self.content.setLayout(content_layout)
+        
         header_label = QLabel(f"Bode Plot for Model: {self.model_name}")
-        header_label.setStyleSheet("font-size: 16px; font-weight: bold; padding: 10px;")
-        main_layout.addWidget(header_label)
+        header_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 2px;")
+        content_layout.addWidget(header_label)
 
         self.progress_bar = QProgressBar()
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedHeight(4)
         self.progress_bar.setVisible(False)
-        main_layout.addWidget(self.progress_bar)
+        content_layout.addWidget(self.progress_bar)
 
         self.plot_container = QWidget()
         self.plot_layout = QVBoxLayout()
+        self.plot_layout.setContentsMargins(0, 0, 0, 0)
+        self.plot_layout.setSpacing(2)
         self.plot_container.setLayout(self.plot_layout)
-        main_layout.addWidget(self.plot_container)
+        content_layout.addWidget(self.plot_container)
 
         self.error_label = QLabel("Waiting for data or select a channel...")
-        self.error_label.setStyleSheet("color: red; font-size: 14px; padding: 10px;")
+        self.error_label.setStyleSheet("color: red; font-size: 12px; padding: 2px;")
         self.error_label.setAlignment(pg.QtCore.Qt.AlignCenter)
-        main_layout.addWidget(self.error_label)
-        self.error_label.setVisible(True)
+        content_layout.addWidget(self.error_label)
+        self.error_label.setVisible(False)
+        
+        # Add content to main layout but hide it initially
+        main_layout.addWidget(self.content)
+        self.content.setVisible(False)
 
         for ch_name in self.channel_names:
             channel_widget = QWidget()
@@ -175,46 +304,73 @@ class BodePlotFeature:
     def get_1x_data_from_tabular(self, channel_name):
         """Retrieve 1x amplitude and phase data from the tabular view."""
         try:
-            # Find the tabular view instance in the parent's features
-            for feature_name, feature in self.parent.features.items():
-                if 'tabular' in feature_name.lower():
-                    tabular_view = feature
-                    if hasattr(tabular_view, 'one_x_amps') and hasattr(tabular_view, 'one_x_phases'):
-                        channel_idx = self.channel_names.index(channel_name) if channel_name in self.channel_names else 0
-                        if (channel_idx < len(tabular_view.one_x_amps) and 
-                            channel_idx < len(tabular_view.one_x_phases) and
-                            tabular_view.one_x_amps[channel_idx] and 
-                            tabular_view.one_x_phases[channel_idx]):
+            # Check if parent has feature_instances (newer versions)
+            if hasattr(self.parent, 'feature_instances'):
+                # Find tabular view in feature_instances
+                for key, feature in self.parent.feature_instances.items():
+                    if 'tabular' in str(key[0]).lower():
+                        tabular_view = feature
+                        if (hasattr(tabular_view, 'one_x_amps') and 
+                            hasattr(tabular_view, 'one_x_phases')):
                             
-                            # Get the most recent 1x amplitude and phase values
-                            one_x_amp = tabular_view.one_x_amps[channel_idx][-1] if tabular_view.one_x_amps[channel_idx] else 0
-                            one_x_phase = tabular_view.one_x_phases[channel_idx][-1] if tabular_view.one_x_phases[channel_idx] else 0
+                            channel_idx = self.channel_names.index(channel_name) if channel_name in self.channel_names else 0
                             
-                            # Get the corresponding frequency (RPM/60)
-                            rpm = 0
-                            if hasattr(tabular_view, 'average_frequency') and tabular_view.average_frequency:
-                                rpm = tabular_view.average_frequency[channel_idx] if channel_idx < len(tabular_view.average_frequency) else 0
-                            freq_hz = rpm / 60.0 if rpm > 0 else 0
-                            
-                            return freq_hz, one_x_amp, one_x_phase
+                            if (channel_idx < len(tabular_view.one_x_amps) and 
+                                channel_idx < len(tabular_view.one_x_phases) and
+                                tabular_view.one_x_amps and 
+                                tabular_view.one_x_phases and
+                                channel_idx < len(tabular_view.one_x_amps) and
+                                channel_idx < len(tabular_view.one_x_phases)):
+                                
+                                # Get the most recent 1x amplitude and phase values
+                                one_x_amp = tabular_view.one_x_amps[channel_idx][-1] if tabular_view.one_x_amps[channel_idx] else 0
+                                one_x_phase = tabular_view.one_x_phases[channel_idx][-1] if tabular_view.one_x_phases[channel_idx] else 0
+                                
+                                # Get the corresponding frequency (RPM/60)
+                                rpm = 0
+                                if hasattr(tabular_view, 'average_frequency') and tabular_view.average_frequency:
+                                    rpm = tabular_view.average_frequency[channel_idx] if channel_idx < len(tabular_view.average_frequency) else 0
+                                freq_hz = rpm / 60.0 if rpm > 0 else 0
+                                
+                                return freq_hz, one_x_amp, one_x_phase
         except Exception as e:
-            self.log_error(f"Error getting 1x data from tabular view: {str(e)}")
+            # Only log the error if it's not the expected 'features' attribute error
+            if "'features'" not in str(e):
+                self.log_error(f"Error getting 1x data from tabular view: {str(e)}")
         return None, 0, 0
 
     def update_visible_plots(self):
         try:
+            if not hasattr(self, 'plot_widgets') or not self.plot_widgets:
+                return
+                
             for ch_name in self.channel_names:
-                visible = ch_name == self.selected_channel
-                self.plot_widgets[f"{ch_name}_widget"].setVisible(visible)
-                self.log_info(f"Set visibility for {ch_name}_widget: {visible}")
-            if self.selected_channel:
-                self.error_label.setVisible(False)
-            else:
-                self.error_label.setText("Please select a channel")
-                self.error_label.setVisible(True)
+                widget_key = f"{ch_name}_widget"
+                if widget_key in self.plot_widgets:
+                    try:
+                        visible = ch_name == self.selected_channel
+                        self.plot_widgets[widget_key].setVisible(visible)
+                        self.log_info(f"Set visibility for {widget_key}: {visible}")
+                    except (KeyError, RuntimeError) as e:
+                        if "wrapped C/C++ object" not in str(e):
+                            self.log_error(f"Error updating {widget_key}: {str(e)}")
+                        continue
+                        
+            if hasattr(self, 'error_label'):
+                try:
+                    if self.selected_channel:
+                        self.error_label.setVisible(False)
+                    else:
+                        self.error_label.setText("Please select a channel")
+                        self.error_label.setVisible(True)
+                except RuntimeError:
+                    pass
+                    
             self.log_info(f"Updated visible plots for channel: {self.selected_channel}")
+            
         except Exception as e:
-            self.log_error(f"Error updating visible plots: {str(e)}")
+            if "wrapped C/C++ object" not in str(e):
+                self.log_error(f"Error in update_visible_plots: {str(e)}")
 
 
     def log_info(self, message):
@@ -368,27 +524,45 @@ class BodePlotFeature:
                 self.error_label.setVisible(True)
                 return
 
-            # Update amplitude plot
+            # Update amplitude plot data only
             self.plots[f"{ch_name}_amp"].setData(freq, amp, connect="all")
-            vb = self.plot_widgets[f"{ch_name}_amp"].getViewBox()
-            x_min = min(freq) if len(freq) > 0 else 0.1
-            x_max = max(freq) if len(freq) > 0 else 100
-            y_min = min(amp) - 10 if len(amp) > 0 else -100
-            y_max = max(amp) + 10 if len(amp) > 0 else 0
-            vb.setXRange(np.log10(max(0.1, x_min)) - 0.1, np.log10(x_max) + 0.1)
-            vb.setYRange(y_min, y_max)
-            self.log_info(f"Updated amplitude plot for {ch_name}: x_range={x_min}-{x_max}, y_range={y_min}-{y_max}")
+            
+            # Get current view ranges
+            vb_amp = self.plot_widgets[f"{ch_name}_amp"].getViewBox()
+            current_x_range = vb_amp.viewRange()[0]
+            current_y_range = vb_amp.viewRange()[1]
+            
+            # Only update view range if there's no valid range yet
+            if current_x_range == [0.0, 1.0] and current_y_range == [0.0, 1.0]:
+                x_min = min(freq) if len(freq) > 0 else 0.1
+                x_max = max(freq) if len(freq) > 0 else 100
+                y_min = min(amp) - 10 if len(amp) > 0 else -100
+                y_max = max(amp) + 10 if len(amp) > 0 else 0
+                vb_amp.setXRange(np.log10(max(0.1, x_min)) - 0.1, np.log10(x_max) + 0.1)
+                vb_amp.setYRange(y_min, y_max)
+                self.log_info(f"Initialized amplitude plot ranges: x_range={x_min}-{x_max}, y_range={y_min}-{y_max}")
+            else:
+                self.log_info(f"Maintaining current amplitude plot ranges: x={current_x_range}, y={current_y_range}")
 
-            # Update phase plot
+            # Update phase plot data only
             self.plots[f"{ch_name}_phase"].setData(freq, phase, connect="all")
-            vb = self.plot_widgets[f"{ch_name}_phase"].getViewBox()
-            x_min = min(freq) if len(freq) > 0 else 0.1
-            x_max = max(freq) if len(freq) > 0 else 100
-            y_min = max(-180, min(phase) - 10) if len(phase) > 0 else -180
-            y_max = min(180, max(phase) + 10) if len(phase) > 0 else 180
-            vb.setXRange(np.log10(max(0.1, x_min)) - 0.1, np.log10(x_max) + 0.1)
-            vb.setYRange(y_min, y_max)
-            self.log_info(f"Updated phase plot for {ch_name}: x_range={x_min}-{x_max}, y_range={y_min}-{y_max}")
+            
+            # Get current view ranges for phase plot
+            vb_phase = self.plot_widgets[f"{ch_name}_phase"].getViewBox()
+            current_phase_x_range = vb_phase.viewRange()[0]
+            current_phase_y_range = vb_phase.viewRange()[1]
+            
+            # Only update view range if there's no valid range yet
+            if current_phase_x_range == [0.0, 1.0] and current_phase_y_range == [0.0, 1.0]:
+                x_min = min(freq) if len(freq) > 0 else 0.1
+                x_max = max(freq) if len(freq) > 0 else 100
+                y_min = max(-180, min(phase) - 10) if len(phase) > 0 else -180
+                y_max = min(180, max(phase) + 10) if len(phase) > 0 else 180
+                vb_phase.setXRange(np.log10(max(0.1, x_min)) - 0.1, np.log10(x_max) + 0.1)
+                vb_phase.setYRange(y_min, y_max)
+                self.log_info(f"Initialized phase plot ranges: x_range={x_min}-{x_max}, y_range={y_min}-{y_max}")
+            else:
+                self.log_info(f"Maintaining current phase plot ranges: x={current_phase_x_range}, y={current_phase_y_range}")
 
             # Get 1x data from tabular view and update scatter plots
             freq_1x, one_x_amp, one_x_phase = self.get_1x_data_from_tabular(ch_name)
