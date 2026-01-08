@@ -1,10 +1,13 @@
 import numpy as np
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QProgressBar
-from PyQt5.QtCore import QTimer
-import pyqtgraph as pg
+from PyQt5.QtCore import QTimer, Qt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
 from pymongo import MongoClient
 import logging
 from datetime import datetime
+from scipy import signal
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -115,7 +118,7 @@ class BodePlotFeature:
         self.log_info("Initialized BodePlotFeature UI")
     
     def _init_channel_plots(self, ch_name):
-        """Initialize plot widgets for a single channel"""
+        """Initialize plot widgets for a single channel using matplotlib"""
         channel_widget = QWidget()
         channel_layout = QVBoxLayout()
         channel_layout.setContentsMargins(0, 0, 0, 0)
@@ -123,59 +126,54 @@ class BodePlotFeature:
         channel_widget.setLayout(channel_layout)
         channel_widget.setVisible(ch_name == self.selected_channel)
 
-        # Amplitude Plot (Magnitude vs Frequency)
-        amp_plot = pg.PlotWidget()
-        amp_plot.setBackground('w')
-        amp_plot.showGrid(x=True, y=True)
-        amp_plot.setLabel('bottom', 'Frequency (Hz)')
-        amp_plot.setLabel('left', 'Amplitude')
-        amp_plot.setTitle(f"Amplitude vs Frequency - {ch_name}")
-        amp_plot.addLegend()
-        amp_plot.setLogMode(x=True, y=False)
+        # Create matplotlib figure with two subplots (amplitude and phase)
+        fig = Figure(figsize=(10, 8), facecolor='white')
+        canvas = FigureCanvas(fig)
         
-        # Main amplitude line
-        amp_line = amp_plot.plot([], [], pen=pg.mkPen(color=self.colors['amplitude'], width=1.5))
+        # Amplitude subplot (magnitude vs frequency)
+        ax_amp = fig.add_subplot(211)
+        ax_amp.set_xlabel('Frequency (Hz)')
+        ax_amp.set_ylabel('Magnitude (dB)')
+        ax_amp.set_title(f'Magnitude Response - {ch_name}')
+        ax_amp.grid(True, which='both', alpha=0.3)
+        ax_amp.set_xscale('log')
         
-        # 1x amplitude points
-        amp_1x_points = pg.ScatterPlotItem(
-            pen=pg.mkPen(color=self.colors['1x_amplitude'], width=1.5), 
-            brush=pg.mkBrush(self.colors['1x_amplitude']), 
-            size=8, symbol='o', name='1x Amplitude'
-        )
-        amp_plot.addItem(amp_1x_points)
+        # Initialize amplitude line
+        amp_line, = ax_amp.plot([], [], 'b-', linewidth=1.5, label='Magnitude')
+        amp_1x_scatter = ax_amp.scatter([], [], c='g', s=50, marker='o', label='1x Magnitude', zorder=5)
+        ax_amp.legend(loc='best')
         
-        self.plot_widgets[f"{ch_name}_amp"] = amp_plot
-        self.plots[f"{ch_name}_amp"] = amp_line
-        self.plots[f"{ch_name}_amp_1x"] = amp_1x_points
-        channel_layout.addWidget(amp_plot)
-
-        # Phase Plot
-        phase_plot = pg.PlotWidget()
-        phase_plot.setBackground('w')
-        phase_plot.showGrid(x=True, y=True)
-        phase_plot.setLabel('bottom', 'Frequency (Hz)')
-        phase_plot.setLabel('left', 'Phase (deg)')
-        phase_plot.setTitle(f"Phase vs Frequency - {ch_name}")
-        phase_plot.addLegend()
-        phase_plot.setLogMode(x=True, y=False)
+        # Phase subplot
+        ax_phase = fig.add_subplot(212)
+        ax_phase.set_xlabel('Frequency (Hz)')
+        ax_phase.set_ylabel('Phase (degrees)')
+        ax_phase.set_title(f'Phase Response - {ch_name}')
+        ax_phase.grid(True, which='both', alpha=0.3)
+        ax_phase.set_xscale('log')
+        ax_phase.set_ylim(-180, 180)
         
-        # Main phase line
-        phase_line = phase_plot.plot([], [], pen=pg.mkPen(color=self.colors['phase'], width=1.5))
+        # Initialize phase line
+        phase_line, = ax_phase.plot([], [], 'r-', linewidth=1.5, label='Phase')
+        phase_1x_scatter = ax_phase.scatter([], [], c='orange', s=50, marker='o', label='1x Phase', zorder=5)
+        ax_phase.legend(loc='best')
         
-        # 1x phase points
-        phase_1x_points = pg.ScatterPlotItem(
-            pen=pg.mkPen(color=self.colors['1x_phase'], width=1.5), 
-            brush=pg.mkBrush(self.colors['1x_phase']), 
-            size=8, symbol='o', name='1x Phase'
-        )
-        phase_plot.addItem(phase_1x_points)
+        # Adjust layout
+        fig.tight_layout()
         
-        self.plot_widgets[f"{ch_name}_phase"] = phase_plot
-        self.plots[f"{ch_name}_phase"] = phase_line
-        self.plots[f"{ch_name}_phase_1x"] = phase_1x_points
-        channel_layout.addWidget(phase_plot)
-
+        # Store matplotlib objects
         self.plot_widgets[f"{ch_name}_widget"] = channel_widget
+        self.plot_widgets[f"{ch_name}_canvas"] = canvas
+        self.plot_widgets[f"{ch_name}_fig"] = fig
+        self.plot_widgets[f"{ch_name}_ax_amp"] = ax_amp
+        self.plot_widgets[f"{ch_name}_ax_phase"] = ax_phase
+        
+        # Store plot lines
+        self.plots[f"{ch_name}_amp"] = amp_line
+        self.plots[f"{ch_name}_phase"] = phase_line
+        self.plots[f"{ch_name}_amp_1x"] = amp_1x_scatter
+        self.plots[f"{ch_name}_phase_1x"] = phase_1x_scatter
+        
+        channel_layout.addWidget(canvas)
         self.plot_layout.addWidget(channel_widget)
 
     def init_ui(self):
@@ -187,7 +185,7 @@ class BodePlotFeature:
 
         # Create a placeholder widget that will be shown immediately
         self.placeholder = QLabel("Loading Bode Plot...")
-        self.placeholder.setAlignment(pg.QtCore.Qt.AlignCenter)
+        self.placeholder.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(self.placeholder)
         
         # Create the actual content that will be shown after initialization
@@ -216,68 +214,13 @@ class BodePlotFeature:
 
         self.error_label = QLabel("Waiting for data or select a channel...")
         self.error_label.setStyleSheet("color: red; font-size: 12px; padding: 2px;")
-        self.error_label.setAlignment(pg.QtCore.Qt.AlignCenter)
+        self.error_label.setAlignment(Qt.AlignCenter)
         content_layout.addWidget(self.error_label)
         self.error_label.setVisible(False)
         
         # Add content to main layout but hide it initially
         main_layout.addWidget(self.content)
         self.content.setVisible(False)
-
-        for ch_name in self.channel_names:
-            channel_widget = QWidget()
-            channel_layout = QVBoxLayout()
-            channel_widget.setLayout(channel_layout)
-            channel_widget.setVisible(ch_name == self.selected_channel)
-
-            # Amplitude Plot (Magnitude vs Frequency)
-            amp_plot = pg.PlotWidget()
-            amp_plot.setBackground('w')
-            amp_plot.showGrid(x=True, y=True)
-            amp_plot.setLabel('bottom', 'Frequency (Hz)')
-            amp_plot.setLabel('left', 'Amplitude')
-            amp_plot.setTitle(f"Amplitude vs Frequency - {ch_name}")
-            amp_plot.addLegend()
-            amp_plot.setLogMode(x=True, y=False)  # Logarithmic frequency axis
-            
-            # Main amplitude line
-            amp_line = amp_plot.plot([], [], pen=pg.mkPen(color=self.colors['amplitude'], width=2), )
-            # 1x amplitude points
-            amp_1x_points = pg.ScatterPlotItem(pen=pg.mkPen(color=self.colors['1x_amplitude'], width=2), 
-                                             brush=pg.mkBrush(self.colors['1x_amplitude']), 
-                                             size=10, symbol='o', name='1x Amplitude')
-            amp_plot.addItem(amp_1x_points)
-            
-            self.plot_widgets[f"{ch_name}_amp"] = amp_plot
-            self.plots[f"{ch_name}_amp"] = amp_line
-            self.plots[f"{ch_name}_amp_1x"] = amp_1x_points
-            channel_layout.addWidget(amp_plot)
-
-            # Phase Plot
-            phase_plot = pg.PlotWidget()
-            phase_plot.setBackground('w')
-            phase_plot.showGrid(x=True, y=True)
-            phase_plot.setLabel('bottom', 'Frequency (Hz)')
-            phase_plot.setLabel('left', 'Phase (deg)')
-            phase_plot.setTitle(f"Phase vs Frequency - {ch_name}")
-            phase_plot.addLegend()
-            phase_plot.setLogMode(x=True, y=False)  # Logarithmic frequency axis
-            
-            # Main phase line
-            phase_line = phase_plot.plot([], [], pen=pg.mkPen(color=self.colors['phase'], width=2))
-            # 1x phase points
-            phase_1x_points = pg.ScatterPlotItem(pen=pg.mkPen(color=self.colors['1x_phase'], width=2), 
-                                               brush=pg.mkBrush(self.colors['1x_phase']), 
-                                               size=10, symbol='o', name='1x Phase')
-            phase_plot.addItem(phase_1x_points)
-            
-            self.plot_widgets[f"{ch_name}_phase"] = phase_plot
-            self.plots[f"{ch_name}_phase"] = phase_line
-            self.plots[f"{ch_name}_phase_1x"] = phase_1x_points
-            channel_layout.addWidget(phase_plot)
-
-            self.plot_widgets[f"{ch_name}_widget"] = channel_widget
-            self.plot_layout.addWidget(channel_widget)
 
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_plots)
@@ -426,70 +369,98 @@ class BodePlotFeature:
             if not channel_data or not frequency_data:
                 self.log_error(f"Empty data for {channel_name}: channel_data={len(channel_data)}, frequency_data={len(frequency_data)}")
                 return
+            
             min_length = min(len(channel_data), len(frequency_data))
             if min_length < 1:
                 self.log_error(f"Data too short for {channel_name}: length={min_length}")
                 return
+                
             channel_data = channel_data[:min_length]
             frequency_data = [f for f in frequency_data[:min_length] if f > 0]
             trigger_data = trigger_data[:min_length] if trigger_data else [0] * min_length
+            
             if not frequency_data:
                 self.log_error(f"No valid frequencies for {channel_name}")
                 return
+                
             min_length = len(frequency_data)
             channel_data = channel_data[:min_length]
             trigger_data = trigger_data[:min_length]
+            
             self.log_info(f"Processing {min_length} samples for {channel_name}")
-            self.log_info(f"Sample channel data: {channel_data[:5]}")
-            self.log_info(f"Sample frequency data: {frequency_data[:5]}")
-            self.log_info(f"Sample trigger data: {trigger_data[:5] if trigger_data else 'None'}")
-
-            # Calculate amplitude (in dB) and phase
+            
+            # Convert to numpy arrays for better numerical processing
+            channel_data = np.array(channel_data, dtype=float)
+            frequency_data = np.array(frequency_data, dtype=float)
+            trigger_data = np.array(trigger_data, dtype=float)
+            
+            # Calculate amplitude (magnitude) and phase properly
+            # For real signals, we need to handle the complex representation
             amplitudes = []
             phases = []
             valid_freqs = []
-            for v, f, t in zip(channel_data, frequency_data, trigger_data):
+            
+            for i, (v, f, t) in enumerate(zip(channel_data, frequency_data, trigger_data)):
                 if f <= 0:
                     continue
-                amplitude = 20 * np.log10(abs(v)) if abs(v) > 0 else -100  # Convert to dB
-                phase = np.angle(v, deg=True) if t != 0 else 0  # Use trigger for phase, fallback to 0
-                if phase < 0:
-                    phase += 360
+                    
+                # For magnitude: use absolute value and convert to dB
+                # Add small epsilon to avoid log(0)
+                magnitude_db = 20 * np.log10(abs(v) + 1e-10)
+                
+                # For phase: if we have trigger data, use it to determine phase
+                # Otherwise, assume the signal represents a complex phasor
+                if t != 0:
+                    # Use trigger as phase reference
+                    phase_deg = np.degrees(np.angle(complex(v, t)))
+                else:
+                    # For real signals, phase is 0 or 180 degrees based on sign
+                    phase_deg = 0 if v >= 0 else 180
+                
+                # Normalize phase to [-180, 180] range
+                phase_deg = ((phase_deg + 180) % 360) - 180
+                
                 valid_freqs.append(f)
-                amplitudes.append(amplitude)
-                phases.append(phase)
-
+                amplitudes.append(magnitude_db)
+                phases.append(phase_deg)
+            
             if not valid_freqs:
                 self.log_error(f"No valid data points for {channel_name} after filtering")
                 return
-
-            # Sort data by frequency
-            sorted_indices = np.argsort(valid_freqs)
-            valid_freqs = [valid_freqs[i] for i in sorted_indices]
-            amplitudes = [amplitudes[i] for i in sorted_indices]
-            phases = [phases[i] for i in sorted_indices]
-
-            # Smooth data using a moving average
-            window_size = 5
-            smoothed_freq = []
-            smoothed_amp = []
-            smoothed_phase = []
-            for i in range(len(valid_freqs)):
-                start_idx = max(0, i - window_size // 2)
-                end_idx = min(len(valid_freqs), i + window_size // 2 + 1)
-                window_freq = valid_freqs[start_idx:end_idx]
-                window_amp = amplitudes[start_idx:end_idx]
-                window_phase = phases[start_idx:end_idx]
-                smoothed_freq.append(np.mean(window_freq))
-                smoothed_amp.append(np.mean(window_amp))
-                smoothed_phase.append(np.mean(window_phase))
-
-            self.data[channel_name]['frequencies'] = smoothed_freq
-            self.data[channel_name]['amplitudes'] = smoothed_amp
-            self.data[channel_name]['phases'] = smoothed_phase
-            self.log_info(f"Processed {len(smoothed_freq)} data points for {channel_name}: freq={smoothed_freq[:5]}, amp={smoothed_amp[:5]}, phase={smoothed_phase[:5]}")
+            
+            # Convert to numpy arrays and sort by frequency
+            valid_freqs = np.array(valid_freqs)
+            amplitudes = np.array(amplitudes)
+            phases = np.array(phases)
+            
+            sort_indices = np.argsort(valid_freqs)
+            valid_freqs = valid_freqs[sort_indices]
+            amplitudes = amplitudes[sort_indices]
+            phases = phases[sort_indices]
+            
+            # Apply smoothing to reduce noise
+            if len(valid_freqs) > 5:
+                window_size = min(5, len(valid_freqs) // 3)
+                amplitudes = self._smooth_data(amplitudes, window_size)
+                phases = self._smooth_data(phases, window_size)
+            
+            # Store processed data
+            self.data[channel_name]['frequencies'] = valid_freqs.tolist()
+            self.data[channel_name]['amplitudes'] = amplitudes.tolist()
+            self.data[channel_name]['phases'] = phases.tolist()
+            
+            self.log_info(f"Processed {len(valid_freqs)} data points for {channel_name}")
+            
         except Exception as e:
             self.log_error(f"Error processing data for {channel_name}: {str(e)}")
+    
+    def _smooth_data(self, data, window_size):
+        """Apply moving average smoothing to data"""
+        if len(data) < window_size:
+            return data
+        
+        smoothed = np.convolve(data, np.ones(window_size)/window_size, mode='same')
+        return smoothed
 
     def update_plots(self):
         try:
@@ -497,8 +468,9 @@ class BodePlotFeature:
                 self.error_label.setText("Please select a channel")
                 self.error_label.setVisible(True)
                 for ch_name in self.channel_names:
-                    self.plots[f"{ch_name}_amp"].setData([], [])
-                    self.plots[f"{ch_name}_phase"].setData([], [])
+                    if f"{ch_name}_amp" in self.plots:
+                        self.plots[f"{ch_name}_amp"].set_data([], [])
+                        self.plots[f"{ch_name}_phase"].set_data([], [])
                 self.log_info("No channel selected; cleared all plots")
                 return
 
@@ -506,13 +478,15 @@ class BodePlotFeature:
             freq = np.array(self.data[ch_name]['frequencies'], dtype=float)
             amp = np.array(self.data[ch_name]['amplitudes'], dtype=float)
             phase = np.array(self.data[ch_name]['phases'], dtype=float)
-            self.log_info(f"Updating plots for {ch_name}: {len(freq)} data points, freq={freq[:5].tolist() if len(freq) > 0 else []}, amp={amp[:5].tolist() if len(amp) > 0 else []}, phase={phase[:5].tolist() if len(phase) > 0 else []}")
+            
+            self.log_info(f"Updating plots for {ch_name}: {len(freq)} data points")
 
             self.update_visible_plots()
 
             if len(freq) == 0 or len(amp) == 0 or len(phase) == 0:
-                self.plots[f"{ch_name}_amp"].setData([], [])
-                self.plots[f"{ch_name}_phase"].setData([], [])
+                if f"{ch_name}_amp" in self.plots:
+                    self.plots[f"{ch_name}_amp"].set_data([], [])
+                    self.plots[f"{ch_name}_phase"].set_data([], [])
                 self.error_label.setText(f"No valid data available for {ch_name}")
                 self.error_label.setVisible(True)
                 self.log_info(f"No valid data for {ch_name}: freq={len(freq)}, amp={len(amp)}, phase={len(phase)}")
@@ -524,62 +498,56 @@ class BodePlotFeature:
                 self.error_label.setVisible(True)
                 return
 
-            # Update amplitude plot data only
-            self.plots[f"{ch_name}_amp"].setData(freq, amp, connect="all")
+            # Get matplotlib axes and lines
+            ax_amp = self.plot_widgets.get(f"{ch_name}_ax_amp")
+            ax_phase = self.plot_widgets.get(f"{ch_name}_ax_phase")
+            canvas = self.plot_widgets.get(f"{ch_name}_canvas")
             
-            # Get current view ranges
-            vb_amp = self.plot_widgets[f"{ch_name}_amp"].getViewBox()
-            current_x_range = vb_amp.viewRange()[0]
-            current_y_range = vb_amp.viewRange()[1]
+            if not all([ax_amp, ax_phase, canvas]):
+                self.log_error(f"Missing matplotlib components for {ch_name}")
+                return
             
-            # Only update view range if there's no valid range yet
-            if current_x_range == [0.0, 1.0] and current_y_range == [0.0, 1.0]:
-                x_min = min(freq) if len(freq) > 0 else 0.1
-                x_max = max(freq) if len(freq) > 0 else 100
-                y_min = min(amp) - 10 if len(amp) > 0 else -100
-                y_max = max(amp) + 10 if len(amp) > 0 else 0
-                vb_amp.setXRange(np.log10(max(0.1, x_min)) - 0.1, np.log10(x_max) + 0.1)
-                vb_amp.setYRange(y_min, y_max)
-                self.log_info(f"Initialized amplitude plot ranges: x_range={x_min}-{x_max}, y_range={y_min}-{y_max}")
-            else:
-                self.log_info(f"Maintaining current amplitude plot ranges: x={current_x_range}, y={current_y_range}")
-
-            # Update phase plot data only
-            self.plots[f"{ch_name}_phase"].setData(freq, phase, connect="all")
+            # Update amplitude plot
+            amp_line = self.plots.get(f"{ch_name}_amp")
+            if amp_line:
+                amp_line.set_data(freq, amp)
+                
+                # Update amplitude axis limits
+                if len(freq) > 0:
+                    ax_amp.set_xlim(min(freq) * 0.9, max(freq) * 1.1)
+                    y_min, y_max = min(amp) - 10, max(amp) + 10
+                    ax_amp.set_ylim(y_min, y_max)
             
-            # Get current view ranges for phase plot
-            vb_phase = self.plot_widgets[f"{ch_name}_phase"].getViewBox()
-            current_phase_x_range = vb_phase.viewRange()[0]
-            current_phase_y_range = vb_phase.viewRange()[1]
+            # Update phase plot
+            phase_line = self.plots.get(f"{ch_name}_phase")
+            if phase_line:
+                phase_line.set_data(freq, phase)
+                
+                # Update phase axis limits
+                if len(freq) > 0:
+                    ax_phase.set_xlim(min(freq) * 0.9, max(freq) * 1.1)
+                    ax_phase.set_ylim(-180, 180)
             
-            # Only update view range if there's no valid range yet
-            if current_phase_x_range == [0.0, 1.0] and current_phase_y_range == [0.0, 1.0]:
-                x_min = min(freq) if len(freq) > 0 else 0.1
-                x_max = max(freq) if len(freq) > 0 else 100
-                y_min = max(-180, min(phase) - 10) if len(phase) > 0 else -180
-                y_max = min(180, max(phase) + 10) if len(phase) > 0 else 180
-                vb_phase.setXRange(np.log10(max(0.1, x_min)) - 0.1, np.log10(x_max) + 0.1)
-                vb_phase.setYRange(y_min, y_max)
-                self.log_info(f"Initialized phase plot ranges: x_range={x_min}-{x_max}, y_range={y_min}-{y_max}")
-            else:
-                self.log_info(f"Maintaining current phase plot ranges: x={current_phase_x_range}, y={current_phase_y_range}")
-
             # Get 1x data from tabular view and update scatter plots
             freq_1x, one_x_amp, one_x_phase = self.get_1x_data_from_tabular(ch_name)
             
-            # Update 1x amplitude point if valid data is available
-            if freq_1x and freq_1x > 0 and one_x_amp > 0:
-                amp_1x_points = self.plots.get(f"{ch_name}_amp_1x")
-                if amp_1x_points:
-                    amp_1x_points.setData([freq_1x], [one_x_amp])
-
-            # Update 1x phase point if valid data is available
-            if freq_1x and freq_1x > 0 and one_x_phase != 0:
-                phase_1x_points = self.plots.get(f"{ch_name}_phase_1x")
-                if phase_1x_points:
-                    phase_1x_points.setData([freq_1x], [one_x_phase])
-
+            # Update 1x amplitude point
+            if freq_1x and freq_1x > 0:
+                amp_1x_scatter = self.plots.get(f"{ch_name}_amp_1x")
+                if amp_1x_scatter:
+                    amp_1x_scatter.set_offsets([[freq_1x, one_x_amp]])
+            
+            # Update 1x phase point
+            if freq_1x and freq_1x > 0:
+                phase_1x_scatter = self.plots.get(f"{ch_name}_phase_1x")
+                if phase_1x_scatter:
+                    phase_1x_scatter.set_offsets([[freq_1x, one_x_phase]])
+            
+            # Redraw canvas
+            canvas.draw()
+            
             self.error_label.setVisible(False)
+            
         except Exception as e:
             self.log_error(f"Error updating plots: {str(e)}")
             self.error_label.setText(f"Plotting error for {ch_name}: {str(e)}")

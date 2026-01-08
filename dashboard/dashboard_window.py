@@ -633,6 +633,11 @@ class DashboardWindow(QWidget):
                 feature_kwargs["channel_count"] = self.channel_count
             instance = feature_classes[feature_name](**feature_kwargs)
             self.feature_instances[key] = instance
+            
+            # Connect measured_dc_values signal for Centerline feature
+            if feature_name == "Centerline" and self.mqtt_handler:
+                self.mqtt_handler.measured_dc_values.connect(instance.on_measured_dc_values_received)
+                
             if self.mqtt_handler:
                 self.mqtt_handler.add_active_feature(feature_name, model_name, ch)
             widget = instance.get_widget()
@@ -1419,6 +1424,10 @@ class DashboardWindow(QWidget):
 
                     feature_instance = feature_classes[feature_name](**feature_kwargs)
 
+                    # Connect measured_dc_values signal for Centerline feature
+                    if feature_name == "Centerline" and self.mqtt_handler:
+                        self.mqtt_handler.measured_dc_values.connect(feature_instance.on_measured_dc_values_received)
+
                     if feature_name == "Tabular View":
                         logging.debug(f"TabularViewFeature initialized for model {selected_model}, channel {channel or 'None'}; displays all {self.channel_count} channels")
                     else:
@@ -1616,6 +1625,14 @@ class DashboardWindow(QWidget):
 
             if key in self.feature_instances:
                 instance = self.feature_instances[key]
+                
+                # Disconnect measured_dc_values signal for Centerline feature
+                if feature_name == "Centerline" and self.mqtt_handler:
+                    try:
+                        self.mqtt_handler.measured_dc_values.disconnect(instance.on_measured_dc_values_received)
+                    except:
+                        pass
+                
                 if hasattr(instance, 'cleanup'):
                     try:
                         instance.cleanup()

@@ -286,31 +286,47 @@ class DCSettingsWindow(QMdiSubWindow):
         Args:
             force_update: If True, will update the ratio column. If False, will only calculate without updating.
         """
+        ratios = []
         for i in range(self.channel_count):
-            measured_text = self.table.item(i, 1).text()
             try:
-                measured = float(measured_text)
-                actual = self.table.cellWidget(i, 2).findChild(QDoubleSpinBox).value()
+                # Get measured value from the item's data (stored during update_measured_dc_values)
+                measured_item = self.table.item(i, 1)
+                if not measured_item:
+                    continue
+                    
+                measured = measured_item.data(Qt.UserRole)  # Get raw value
+                if measured is None:
+                    measured = 0.0
+                    
+                # Get actual value from spinbox
+                spinbox = self.table.cellWidget(i, 2).findChild(QDoubleSpinBox)
+                if not spinbox:
+                    continue
+                    
+                actual = spinbox.value()
                 
-                # Avoid division by zero
-                if abs(measured) > 1e-9:  # Small threshold to avoid division by very small numbers
+                # Calculate ratio (avoid division by zero)
+                if abs(measured) > 1e-9:
                     ratio = actual / measured
                 else:
                     ratio = 1.0 if actual == 0 else float('inf')
                 
-                # Only update the ratio column if force_update is True
+                # Update ratio display if needed
                 if force_update:
                     ratio_item = self.table.item(i, 3)
-                    if abs(ratio) < 1000:  # Prevent display of very large numbers
-                        ratio_item.setText(f"{ratio:.6f}")
-                    else:
-                        ratio_item.setText("N/A")
+                    if ratio_item:  # Make sure the item exists
+                        if abs(ratio) < 1000:
+                            ratio_item.setText(f"{ratio:.6f}")
+                        else:
+                            ratio_item.setText("N/A")
                 
-                return ratio
+                ratios.append(ratio)
                 
             except (ValueError, AttributeError) as e:
-                logging.error(f"Error calculating ratio: {e}")
-                return None
+                logging.error(f"Error calculating ratio for channel {i+1}: {e}")
+                ratios.append(1.0)  # Default to no scaling on error
+        
+        return ratios[0] if ratios else None  # Return first ratio for backward compatibility
     
     def reset_values(self):
         """Reset all input fields to zero and send reset command via MQTT."""
@@ -382,23 +398,27 @@ class DCSettingsWindow(QMdiSubWindow):
             return
             
         try:
+            # First, update all values
             for i, value in enumerate(dc_values[:self.channel_count]):
                 try:
                     # Update measured DC value
                     measured_item = self.table.item(i, 1)
                     if measured_item:
-                        measured_item.setText(f"{float(value):.3f}")
+                        # Store the raw value for calculations
+                        float_val = float(value)
+                        measured_item.setData(Qt.UserRole, float_val)  # Store raw value
+                        measured_item.setText(f"{float_val:.3f}")
                     
                     # If actual DC is not set, initialize it with the measured value
                     spinbox = self.table.cellWidget(i, 2).findChild(QDoubleSpinBox)
                     if spinbox and abs(spinbox.value()) < 1e-9:  # Check if close to zero
-                        spinbox.setValue(float(value))
-                    
-                    # Recalculate ratio
-                    self.calculate_ratio()
-                    
+                        spinbox.setValue(float_val)
+                        
                 except (ValueError, AttributeError) as e:
                     logging.error(f"Error updating DC value for channel {i+1}: {e}")
+            
+            # Then, calculate ratios for all channels in one go
+            self.calculate_ratio(force_update=True)
                     
         except Exception as e:
             logging.error(f"Error in update_measured_dc_values: {e}")
