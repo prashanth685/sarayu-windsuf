@@ -32,7 +32,11 @@ class CenterLineFeature:
         self.update_interval = 200  # ms
         self.start_time = time.time()
         self.all_dc_values = []  # Store all 11 DC values from header
+        self.is_updating = False
         self.initUI()
+        # Connect to tree view signals like orbit.py
+        self.parent.tree_view.model_selected.connect(self.update_model)
+        self.parent.tree_view.channel_selected.connect(self.update_channel)
         self.cache_channel_data()
         logging.debug(f"Initialized CenterLineFeature with project_name: {project_name}, model_name: {model_name}, channel: {channel}")
 
@@ -71,6 +75,8 @@ class CenterLineFeature:
             }
         """)
         self.primary_channel_combo.currentIndexChanged.connect(self.primary_channel_changed)
+        # Primary selection is fixed by tree_view updates; disable manual changes like orbit.py
+        self.primary_channel_combo.setEnabled(False)
         channel_layout.addWidget(self.primary_channel_combo)
         
         # Secondary channel selection
@@ -103,44 +109,16 @@ class CenterLineFeature:
         
         main_layout.addLayout(channel_layout)
 
-        # Plot layout using grid for 3 plots
-        plot_layout = QGridLayout()
+        # Plot layout for single scatter plot
+        plot_layout = QVBoxLayout()
         
         # Setup pyqtgraph
         pg.setConfigOptions(antialias=True)
         
-        # Primary channel vs time plot
-        self.primary_time_plot = pg.PlotWidget()
-        self.primary_time_plot.setBackground("white")
-        self.primary_time_plot.setTitle("Primary Channel DC vs Time", color="black", size="12pt")
-        self.primary_time_plot.setLabel('left', 'DC Value (V)', color='black')
-        self.primary_time_plot.setLabel('bottom', 'Time (s)', color='black')
-        self.primary_time_plot.showGrid(x=True, y=True)
-        self.primary_time_plot_item = self.primary_time_plot.plot(
-            x=[], y=[],
-            pen=pg.mkPen(color=(255, 0, 0), width=2),  # Red
-            name="Primary Channel DC"
-        )
-        plot_layout.addWidget(self.primary_time_plot, 0, 0)
-        
-        # Secondary channel vs time plot
-        self.secondary_time_plot = pg.PlotWidget()
-        self.secondary_time_plot.setBackground("white")
-        self.secondary_time_plot.setTitle("Secondary Channel DC vs Time", color="black", size="12pt")
-        self.secondary_time_plot.setLabel('left', 'DC Value (V)', color='black')
-        self.secondary_time_plot.setLabel('bottom', 'Time (s)', color='black')
-        self.secondary_time_plot.showGrid(x=True, y=True)
-        self.secondary_time_plot_item = self.secondary_time_plot.plot(
-            x=[], y=[],
-            pen=pg.mkPen(color=(0, 0, 255), width=2),  # Blue
-            name="Secondary Channel DC"
-        )
-        plot_layout.addWidget(self.secondary_time_plot, 0, 1)
-        
         # Primary vs Secondary scatter plot
         self.scatter_plot = pg.PlotWidget()
         self.scatter_plot.setBackground("white")
-        self.scatter_plot.setTitle("Primary vs Secondary Channel DC", color="black", size="12pt")
+        self.scatter_plot.setTitle("Centerline", color="black", size="20pt")
         self.scatter_plot.setLabel('left', 'Secondary Channel DC Value (V)', color='black')
         self.scatter_plot.setLabel('bottom', 'Primary Channel DC Value (V)', color='black')
         self.scatter_plot.showGrid(x=True, y=True)
@@ -153,7 +131,7 @@ class CenterLineFeature:
             symbolBrush=pg.mkBrush(color=(0, 128, 0)),
             name="Primary vs Secondary DC"
         )
-        plot_layout.addWidget(self.scatter_plot, 1, 0, 1, 2)
+        plot_layout.addWidget(self.scatter_plot)
         
         main_layout.addLayout(plot_layout)
 
@@ -193,8 +171,8 @@ class CenterLineFeature:
                 self.waiting_message.setText("TagName not found for selected model.")
                 return
 
-            # Create DC channel names (ch1 to ch11) for dropdowns
-            self.channel_names = [f"ch{i+1}" for i in range(11)]
+            # Create DC channel names (ch1 to ch10) for dropdowns
+            self.channel_names = [f"ch{i+1}" for i in range(10)]
             self.main_channels = len(self.channel_names)
 
             # Find primary channel index (0-based) - use the channel from treeview or default to ch1
@@ -213,21 +191,46 @@ class CenterLineFeature:
                 self.waiting_message.setText("Selected channel not found.")
                 return
 
-            # Populate primary channel combo box with the selected channel from treeview
+            # Populate primary channel combo box with all channels (display only; disabled for manual change)
             self.primary_channel_combo.clear()
-            self.primary_channel_combo.addItem(self.channel)  # Only show the selected channel
-            self.primary_channel_combo.setCurrentIndex(0)
+            self.primary_channel_combo.addItems(self.channel_names)
+            
+            # Set primary channel from treeview selection or default to first channel
+            if self.channel and self.channel in self.channel_names:
+                self.channel_index = self.channel_names.index(self.channel)
+            else:
+                self.channel = self.channel_names[0] if self.channel_names else None
+                self.channel_index = 0
+                logging.warning(f"Channel was None or not found, using default: {self.channel}")
+                if self.console:
+                    self.console.append_to_console(f"Channel was None or not found, using default: {self.channel}")
+            
+            self.primary_channel_index = self.channel_index
+            self.primary_channel_combo.setCurrentIndex(self.primary_channel_index)
 
             # Populate secondary channel combo box with all DC channels
             self.secondary_channel_combo.clear()
             self.secondary_channel_combo.addItems(self.channel_names)
             
-            # Set default secondary channel (different from primary)
-            for i, channel_name in enumerate(self.channel_names):
-                if channel_name != self.channel:
-                    self.secondary_channel_combo.setCurrentIndex(i)
-                    self.secondary_channel_index = i
-                    break
+            # Set default secondary channel to next channel after primary
+            # If primary is ch1, secondary should be ch2; if ch2 -> ch3, etc.
+            # For ch10, wrap around to ch1
+            primary_channel_num = int(self.channel.replace('ch', ''))
+            secondary_channel_num = primary_channel_num % 10 + 1  # Wrap around after ch10
+            secondary_channel = f'ch{secondary_channel_num}'
+            
+            # Find and set the secondary channel
+            if secondary_channel in self.channel_names:
+                secondary_index = self.channel_names.index(secondary_channel)
+                self.secondary_channel_combo.setCurrentIndex(secondary_index)
+                self.secondary_channel_index = secondary_index
+            else:
+                # Fallback to first different channel if next channel not found
+                for i, channel_name in enumerate(self.channel_names):
+                    if channel_name != self.channel:
+                        self.secondary_channel_combo.setCurrentIndex(i)
+                        self.secondary_channel_index = i
+                        break
 
             logging.debug(f"Primary channel {self.channel} index (0-based): {self.channel_index}, TagName: {self.tag_name}, Secondary channel: {self.secondary_channel_combo.currentText()}")
             if self.console:
@@ -242,6 +245,90 @@ class CenterLineFeature:
                 self.console.append_to_console(f"Error caching channel data: {str(e)}")
             self.waiting_message.setText("Error initializing view.")
 
+    def update_model(self, model_name):
+        """Handle model selection from tree view (like orbit.py)"""
+        if self.model_name != model_name:
+            self.model_name = model_name
+            self.channel = None
+            self.channel_index = None
+            self.primary_channel_index = None
+            self.secondary_channel_index = None
+            self.primary_gap_values.clear()
+            self.secondary_gap_values.clear()
+            self.time_values.clear()
+            self.all_dc_values = []
+            self.cache_channel_data()
+            if self.console:
+                self.console.append_to_console(f"CenterLineFeature: Updated model to {model_name}")
+
+    def update_channel(self, model_name, channel_name):
+        """Handle channel selection from tree view (like orbit.py)"""
+        if self.model_name == model_name and channel_name in self.channel_names:
+            self.update_selected_channel(channel_name)
+            if self.console:
+                self.console.append_to_console(f"CenterLineFeature: Updated channel to {channel_name}")
+        else:
+            if self.console:
+                self.console.append_to_console(
+                    f"CenterLineFeature: Skipped channel update - model mismatch ({self.model_name} vs {model_name}) "
+                    f"or channel {channel_name} not in {self.channel_names}"
+                )
+
+    def update_selected_channel(self, channel_name):
+        """Update selected channel from tree view (like orbit.py)"""
+        if self.is_updating:
+            return
+        self.is_updating = True
+        try:
+            if channel_name and channel_name in self.channel_names:
+                self.channel = channel_name
+                self.channel_index = self.channel_names.index(channel_name)
+                self.primary_channel_index = self.channel_index
+                
+                # Update primary dropdown
+                self.primary_channel_combo.setCurrentIndex(self.primary_channel_index)
+                
+                # Set secondary channel to next channel after primary
+                primary_channel_num = int(channel_name.replace('ch', ''))
+                secondary_channel_num = primary_channel_num % 10 + 1  # Wrap around after ch10
+                secondary_channel = f'ch{secondary_channel_num}'
+                
+                # Set secondary channel (next channel after primary)
+                if secondary_channel in self.channel_names:
+                    secondary_index = self.channel_names.index(secondary_channel)
+                    self.secondary_channel_combo.setCurrentIndex(secondary_index)
+                    self.secondary_channel_index = secondary_index
+                else:
+                    # Fallback to first different channel
+                    for i, channel_name in enumerate(self.channel_names):
+                        if channel_name != channel_name:
+                            self.secondary_channel_combo.setCurrentIndex(i)
+                            self.secondary_channel_index = i
+                            break
+                
+                # Clear data and reset for new primary channel
+                self.primary_gap_values.clear()
+                self.secondary_gap_values.clear()
+                self.time_values.clear()
+                self.scatter_plot_item.clear()
+                self.waiting_message.setVisible(True)
+                self.waiting_message.setText("Waiting for DC data...")
+                
+                logging.debug(f"Primary channel updated from treeview: {channel_name}")
+                if self.console:
+                    self.console.append_to_console(f"Primary channel updated from treeview: {channel_name}")
+                    self.console.append_to_console(f"Secondary channel set to: {self.secondary_channel_combo.currentText()}")
+            else:
+                logging.warning(f"Channel {channel_name} not found in available channels: {self.channel_names}")
+                if self.console:
+                    self.console.append_to_console(f"Channel {channel_name} not found in available channels")
+        except Exception as e:
+            logging.error(f"Error updating selected channel: {str(e)}")
+            if self.console:
+                self.console.append_to_console(f"Error updating selected channel: {str(e)}")
+        finally:
+            self.is_updating = False
+
     def get_widget(self):
         return self.widget
 
@@ -250,11 +337,11 @@ class CenterLineFeature:
         try:
             logging.debug(f"Received DC values: {len(dc_values)} channels")
             
-            # Validate we have 11 DC values
-            if len(dc_values) != 11:
-                logging.warning(f"Expected 11 DC values, got {len(dc_values)}")
+            # Validate we have 10 DC values
+            if len(dc_values) != 10:
+                logging.warning(f"Expected 10 DC values, got {len(dc_values)}")
                 if self.console:
-                    self.console.append_to_console(f"Warning: Expected 11 DC values, got {len(dc_values)}")
+                    self.console.append_to_console(f"Warning: Expected 10 DC values, got {len(dc_values)}")
                 return
             
             # Validate DC values are reasonable
@@ -318,18 +405,6 @@ class CenterLineFeature:
             primary_data = np.array(self.primary_gap_values, dtype=np.float64)
             secondary_data = np.array(self.secondary_gap_values, dtype=np.float64)
 
-            # Update primary channel vs time plot
-            self.primary_time_plot_item.setData(x=time_data, y=primary_data)
-            self.primary_time_plot.setTitle(f"{self.channel_names[self.primary_channel_index]} DC vs Time")
-            self.primary_time_plot.setLabel('left', f"{self.channel_names[self.primary_channel_index]} DC Value (V)")
-            self.primary_time_plot.getPlotItem().autoRange()
-
-            # Update secondary channel vs time plot
-            self.secondary_time_plot_item.setData(x=time_data, y=secondary_data)
-            self.secondary_time_plot.setTitle(f"{self.channel_names[self.secondary_channel_index]} DC vs Time")
-            self.secondary_time_plot.setLabel('left', f"{self.channel_names[self.secondary_channel_index]} DC Value (V)")
-            self.secondary_time_plot.getPlotItem().autoRange()
-
             # Update primary vs secondary scatter plot
             self.scatter_plot_item.setData(x=primary_data, y=secondary_data)
             self.scatter_plot.setTitle(f"{self.channel_names[self.primary_channel_index]} vs {self.channel_names[self.secondary_channel_index]} DC")
@@ -347,17 +422,27 @@ class CenterLineFeature:
             if self.console:
                 self.console.append_to_console(f"Error updating plots: {str(e)}")
 
+
     def primary_channel_changed(self):
         # Primary channel is fixed from treeview selection, this should not be changeable
         # Reset to the original channel if somehow changed
-        if self.channel and self.channel in self.channel_names:
-            index = self.primary_channel_combo.findText(self.channel)
-            if index >= 0:
-                self.primary_channel_combo.setCurrentIndex(index)
-                self.primary_channel_index = self.channel_names.index(self.channel)
-        logging.debug("Primary channel selection is fixed from treeview")
+        if self.is_updating:
+            return
+        self.is_updating = True
+        try:
+            if self.channel and self.channel in self.channel_names:
+                index = self.primary_channel_combo.findText(self.channel)
+                if index >= 0:
+                    self.primary_channel_combo.setCurrentIndex(index)
+                    self.primary_channel_index = self.channel_names.index(self.channel)
+            logging.debug("Primary channel selection is fixed from treeview")
+        finally:
+            self.is_updating = False
 
     def secondary_channel_changed(self):
+        if self.is_updating:
+            return
+        self.is_updating = True
         try:
             selected_channel = self.secondary_channel_combo.currentText()
             if selected_channel:
@@ -366,8 +451,6 @@ class CenterLineFeature:
                 self.primary_gap_values.clear()
                 self.secondary_gap_values.clear()
                 self.time_values.clear()
-                self.primary_time_plot_item.clear()
-                self.secondary_time_plot_item.clear()
                 self.scatter_plot_item.clear()
                 self.waiting_message.setVisible(True)
                 self.waiting_message.setText("Waiting for DC data...")
@@ -378,62 +461,14 @@ class CenterLineFeature:
             logging.error(f"Error changing secondary channel: {str(e)}")
             if self.console:
                 self.console.append_to_console(f"Error changing secondary channel: {str(e)}")
-
-    def update_primary_channel(self, new_channel):
-        """Update primary channel when user selects from treeview."""
-        try:
-            if new_channel and new_channel in self.channel_names:
-                self.channel = new_channel
-                self.channel_index = self.channel_names.index(new_channel)
-                self.primary_channel_index = self.channel_index
-                
-                # Update primary dropdown
-                self.primary_channel_combo.clear()
-                self.primary_channel_combo.addItem(new_channel)
-                self.primary_channel_combo.setCurrentIndex(0)
-                
-                # Update secondary dropdown options
-                current_secondary = self.secondary_channel_combo.currentText()
-                self.secondary_channel_combo.clear()
-                self.secondary_channel_combo.addItems(self.channel_names)
-                
-                # Set secondary channel (different from primary)
-                for i, channel_name in enumerate(self.channel_names):
-                    if channel_name != new_channel:
-                        self.secondary_channel_combo.setCurrentIndex(i)
-                        self.secondary_channel_index = i
-                        break
-                
-                # Clear data and reset for new primary channel
-                self.primary_gap_values.clear()
-                self.secondary_gap_values.clear()
-                self.time_values.clear()
-                self.primary_time_plot_item.clear()
-                self.secondary_time_plot_item.clear()
-                self.scatter_plot_item.clear()
-                self.waiting_message.setVisible(True)
-                self.waiting_message.setText("Waiting for DC data...")
-                
-                logging.debug(f"Primary channel updated from treeview: {new_channel}")
-                if self.console:
-                    self.console.append_to_console(f"Primary channel updated from treeview: {new_channel}")
-                    self.console.append_to_console(f"Secondary channel set to: {self.secondary_channel_combo.currentText()}")
-            else:
-                logging.warning(f"Channel {new_channel} not found in available channels: {self.channel_names}")
-                if self.console:
-                    self.console.append_to_console(f"Channel {new_channel} not found in available channels")
-        except Exception as e:
-            logging.error(f"Error updating primary channel: {str(e)}")
-            if self.console:
-                self.console.append_to_console(f"Error updating primary channel: {str(e)}")
+        finally:
+            self.is_updating = False
 
     def cleanup(self):
         self.update_timer.stop()
         self.primary_gap_values.clear()
         self.secondary_gap_values.clear()
         self.time_values.clear()
-        self.primary_time_plot_item.clear()
-        self.secondary_time_plot_item.clear()
         self.scatter_plot_item.clear()
         logging.debug("Cleaned up CenterLineFeature resources")
         if self.console:
