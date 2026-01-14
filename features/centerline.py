@@ -126,9 +126,9 @@ class CenterLineFeature:
             x=[], y=[],
             symbol='o',
             symbolSize=5,
-            pen=None,
-            symbolPen=pg.mkPen(color=(0, 128, 0), width=2),  # Green
-            symbolBrush=pg.mkBrush(color=(0, 128, 0)),
+            pen=pg.mkPen(color=(0, 128, 0), width=2),  # Green line connecting dots
+            symbolPen=pg.mkPen(color=(0, 128, 0), width=2),  # Green dot outline
+            symbolBrush=pg.mkBrush(color=(0, 128, 0)),  # Green filled dots
             name="Primary vs Secondary DC"
         )
         plot_layout.addWidget(self.scatter_plot)
@@ -171,8 +171,8 @@ class CenterLineFeature:
                 self.waiting_message.setText("TagName not found for selected model.")
                 return
 
-            # Create DC channel names (ch1 to ch10) for dropdowns
-            self.channel_names = [f"ch{i+1}" for i in range(10)]
+            # Create DC channel names (ch1 to ch11) for dropdowns
+            self.channel_names = [f"ch{i+1}" for i in range(11)]
             self.main_channels = len(self.channel_names)
 
             # Find primary channel index (0-based) - use the channel from treeview or default to ch1
@@ -214,9 +214,9 @@ class CenterLineFeature:
             
             # Set default secondary channel to next channel after primary
             # If primary is ch1, secondary should be ch2; if ch2 -> ch3, etc.
-            # For ch10, wrap around to ch1
+            # For ch11, wrap around to ch1
             primary_channel_num = int(self.channel.replace('ch', ''))
-            secondary_channel_num = primary_channel_num % 10 + 1  # Wrap around after ch10
+            secondary_channel_num = primary_channel_num % 11 + 1  # Wrap around after ch11
             secondary_channel = f'ch{secondary_channel_num}'
             
             # Find and set the secondary channel
@@ -290,7 +290,7 @@ class CenterLineFeature:
                 
                 # Set secondary channel to next channel after primary
                 primary_channel_num = int(channel_name.replace('ch', ''))
-                secondary_channel_num = primary_channel_num % 10 + 1  # Wrap around after ch10
+                secondary_channel_num = primary_channel_num % 11 + 1  # Wrap around after ch11
                 secondary_channel = f'ch{secondary_channel_num}'
                 
                 # Set secondary channel (next channel after primary)
@@ -337,11 +337,11 @@ class CenterLineFeature:
         try:
             logging.debug(f"Received DC values: {len(dc_values)} channels")
             
-            # Validate we have 10 DC values
-            if len(dc_values) != 10:
-                logging.warning(f"Expected 10 DC values, got {len(dc_values)}")
+            # Validate we have 11 DC values
+            if len(dc_values) != 11:
+                logging.warning(f"Expected 11 DC values, got {len(dc_values)}")
                 if self.console:
-                    self.console.append_to_console(f"Warning: Expected 10 DC values, got {len(dc_values)}")
+                    self.console.append_to_console(f"Warning: Expected 11 DC values, got {len(dc_values)}")
                 return
             
             # Validate DC values are reasonable
