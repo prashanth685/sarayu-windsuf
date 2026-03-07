@@ -369,6 +369,12 @@ class TimeViewFeature:
                     left_axis = LeftAxisItem(orientation='left', decimals=0)
                 elif unit_for_axis_l == 'v':
                     left_axis = LeftAxisItem(orientation='left', decimals=3)
+                elif unit_for_axis_l == 'g':
+                    left_axis = LeftAxisItem(orientation='left', decimals=2)
+                elif unit_for_axis_l == 'm/s²' or unit_for_axis_l == 'm/s^2':
+                    left_axis = LeftAxisItem(orientation='left', decimals=2)
+                elif unit_for_axis_l == 'mm/s':
+                    left_axis = LeftAxisItem(orientation='left', decimals=1)
                 else:
                     left_axis = LeftAxisItem(orientation='left', decimals=None)
             else:

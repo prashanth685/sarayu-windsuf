@@ -489,12 +489,12 @@ class TabularViewFeature:
                 gridline-color: #e0e6ef;
             }
             QTableWidget::item {
-                padding: 10px 14px; /* increased padding for breathing room */
+                padding: 4px 8px; /* reduced padding for compact view */
             }
             QHeaderView::section {
                 background-color: #2196F3; /* blue */
                 color: #ffffff; /* white font */
-                padding: 10px 14px; /* increased header padding */
+                padding: 6px 10px; /* reduced header padding */
                 border: 1px solid #1976d2; /* darker blue border */
                 font-weight: 700;
                 font-size: 15px;
@@ -523,7 +523,7 @@ class TabularViewFeature:
         # Do not stretch last section; allow horizontal scroll so fixed widths stay intact
         self.table.horizontalHeader().setStretchLastSection(False)
         self.table.verticalHeader().setVisible(False)
-        self.table.verticalHeader().setDefaultSectionSize(36)  # slightly taller rows for padding
+        self.table.verticalHeader().setDefaultSectionSize(24)  # compact rows for single page view
         # Size policy: expand horizontally, fixed vertically (we control height)
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         # Do not add table directly to main layout; add to left container later
@@ -981,6 +981,8 @@ class TabularViewFeature:
                 calibrated = (volts * (props["CorrectionValue"] * props["Gain"])) / props["Sensitivity"]
             elif unit == "mil":
                 calibrated = (volts * (props["CorrectionValue"] * props["Gain"])) / props["Sensitivity"]
+            elif unit in ["g", "m/s²", "mm/s"]:
+                calibrated = (volts * (props["CorrectionValue"] * props["Gain"])) / props["Sensitivity"]
             else:
                 calibrated = volts 
             logging.debug(f"Processed data for {channel_name} with unit {unit}, shape: {calibrated.shape}")
@@ -996,7 +998,8 @@ class TabularViewFeature:
         avg = float(np.mean(values))
         unit = (unit or "mil").lower()
         # Unit-based decimals for amplitude/metrics:
-        # mil: 1 decimal, mm: 3 decimals, um: 0 decimals, v: 3 decimals, default: 2
+        # mil: 1 decimal, mm: 3 decimals, um: 0 decimals, v: 3 decimals
+        # g: 3 decimals, m/s²: 3 decimals, mm/s: 3 decimals, default: 2
         if unit == "mil":
             return f"{avg:.1f}"
         elif unit == "mm":
@@ -1004,6 +1007,8 @@ class TabularViewFeature:
         elif unit == "um":
             return f"{avg:.0f}"
         elif unit == "v":
+            return f"{avg:.3f}"
+        elif unit in ["g", "m/s²", "mm/s"]:
             return f"{avg:.3f}"
         else:
             return f"{avg:.2f}"
@@ -1028,6 +1033,8 @@ class TabularViewFeature:
             elif unit == "um":
                 return f"{val:.0f}"
             elif unit == "v":
+                return f"{val:.3f}"
+            elif unit in ["g", "m/s²", "mm/s"]:
                 return f"{val:.3f}"
             # default fallback
             return f"{val:.2f}"

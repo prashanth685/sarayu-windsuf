@@ -1125,6 +1125,14 @@ class DashboardWindow(QWidget):
                 sub_window = self.main_section.mdi_area.addSubWindow(dc_settings_window)
                 sub_window.setWindowTitle("DC Settings")
                 
+                # Apply layout management rules to align with 2x2 grid features
+                from PyQt5.QtWidgets import QMdiSubWindow
+                from PyQt5.QtCore import Qt
+                sub_window.setOption(QMdiSubWindow.RubberBandMove, False)
+                sub_window.setWindowFlags(sub_window.windowFlags() & ~Qt.WindowMinimizeButtonHint)
+                sub_window.windowStateChanged.connect(self.main_section.on_window_state_changed)
+                
+                
                 # Store the window reference
                 self.dc_settings_windows.add(dc_settings_window)
                 

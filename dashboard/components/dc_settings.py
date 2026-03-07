@@ -13,7 +13,9 @@ message_box_style = """
         color: #ffffff;
     }
     QMessageBox QLabel {
-        color: #ffffff;
+        color: #ffffff !important;
+        font-size: 14px;
+        background-color: transparent;
     }
     QMessageBox QPushButton {
         background-color: #000000;
@@ -63,10 +65,6 @@ class DCSettingsWindow(QMdiSubWindow):
         title.setStyleSheet("font-size: 24px; font-weight: bold; margin: 20px 0;")
         self.layout.addWidget(title, alignment=Qt.AlignCenter)
         
-        # Add description
-        description = QLabel("Enter actual DC values and click 'Send' to calibrate")
-        description.setStyleSheet("font-size: 16px; color: #666; margin-bottom: 25px;")
-        self.layout.addWidget(description, alignment=Qt.AlignCenter)
         
         # Create table
         self.create_table()
@@ -253,28 +251,35 @@ class DCSettingsWindow(QMdiSubWindow):
         self.table.verticalHeader().setDefaultSectionSize(50)  # Increased row height
         self.table.setAlternatingRowColors(True)
         
+        # Disable scrolling and fit table to content
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.table.setSizeAdjustPolicy(QTableWidget.AdjustToContents)
+        self.table.resizeColumnsToContents()
+        self.table.resizeRowsToContents()
+        
         # Apply table styles
         self.table.setStyleSheet("""
-            QTableWidget {
-                font-size: 14px;
-                gridline-color: #e0e0e0;
-                selection-background-color: #e6f2ff;
-            }
-            QHeaderView::section {
-                background-color: #f0f0f0;
-                padding: 8px;
-                border: 1px solid #d0d0d0;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QTableWidget::item {
-                padding: 8px;
-            }
-            QDoubleSpinBox {
-                padding: 6px;
-                font-size: 14px;
-                min-width: 120px;
-            }
+            # QTableWidget {
+            #     font-size: 14px;
+            #     gridline-color: #e0e0e0;
+            #     selection-background-color: #e6f2ff;
+            # }
+            # QHeaderView::section {
+            #     background-color: #f0f0f0;
+            #     padding: 8px;
+            #     border: 1px solid #d0d0d0;
+            #     font-size: 14px;
+            #     font-weight: bold;
+            # }
+            # QTableWidget::item {
+            #     padding: 8px;
+            # }
+            # QDoubleSpinBox {
+            #     padding: 6px;
+            #     font-size: 14px;
+            #     min-width: 120px;
+            # }
         """)
         
         self.layout.addWidget(self.table)
@@ -417,8 +422,7 @@ class DCSettingsWindow(QMdiSubWindow):
                 except (ValueError, AttributeError) as e:
                     logging.error(f"Error updating DC value for channel {i+1}: {e}")
             
-            # Then, calculate ratios for all channels in one go
-            self.calculate_ratio(force_update=True)
+            # Remove automatic calculation - only calculate when user clicks Calculate button
                     
         except Exception as e:
             logging.error(f"Error in update_measured_dc_values: {e}")
