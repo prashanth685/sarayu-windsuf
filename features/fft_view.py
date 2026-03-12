@@ -37,8 +37,8 @@ class FFTSettings:
     def __init__(self, project_id):
         self.project_id = project_id
         self.window_type = "Hamming"
-        self.start_frequency = 10.0
-        self.stop_frequency = 2000.0
+        self.start_frequency = 2.0
+        self.stop_frequency = 1000.0
         self.number_of_lines = 1600
         self.overlap_percentage = 0.0
         self.averaging_mode = "No Averaging"
@@ -371,6 +371,12 @@ class FFTViewFeature:
         self.magnitude_plot_widget.scene().sigMouseMoved.connect(self.on_mouse_moved)
         
         self.magnitude_plot_item = self.magnitude_plot_widget.plot(pen=pg.mkPen(color='#4a90e2', width=2))
+        
+        # Add cursor position label for magnitude plot
+        self.magnitude_cursor_label = pg.TextItem(text='', color='black', anchor=(1, 0))
+        self.magnitude_cursor_label.setFont(pg.Qt.QtGui.QFont('Arial', 10))
+        self.magnitude_cursor_label.setPos(self.settings.stop_frequency, 0)
+        self.magnitude_plot_widget.addItem(self.magnitude_cursor_label, ignoreBounds=True)
         plot_layout.addWidget(self.magnitude_plot_widget)
 
         # Create phase plot widget with same enhancements
@@ -402,6 +408,12 @@ class FFTViewFeature:
         self.phase_plot_widget.scene().sigMouseMoved.connect(self.on_mouse_moved)
         
         self.phase_plot_item = self.phase_plot_widget.plot(pen=pg.mkPen(color='#e74c3c', width=2))
+        
+        # Add cursor position label for phase plot
+        self.phase_cursor_label = pg.TextItem(text='', color='black', anchor=(1, 0))
+        self.phase_cursor_label.setFont(pg.Qt.QtGui.QFont('Arial', 10))
+        self.phase_cursor_label.setPos(self.settings.stop_frequency, 0)
+        self.phase_plot_widget.addItem(self.phase_cursor_label, ignoreBounds=True)
         plot_layout.addWidget(self.phase_plot_widget)
 
         # Create a left container to hold the plots and add to a content layout with the right sidebar
@@ -675,7 +687,7 @@ class FFTViewFeature:
             pass
 
     def on_mouse_moved(self, pos):
-        """Handle mouse movement events to update cursor lines in both plots."""
+        """Handle mouse movement events to update cursor lines and position display in both plots."""
         try:
             # Get the plot item that received the event
             sender = self.widget.sender()
@@ -685,12 +697,60 @@ class FFTViewFeature:
             # Get the view and map the mouse position to plot coordinates
             view = sender.views()[0]
             mouse_point = view.mapToView(pos)
+            x_pos = mouse_point.x()
+            y_pos = mouse_point.y()
             
             # Update cursor lines in both plots
             if hasattr(self, 'magnitude_cursor'):
-                self.magnitude_cursor.setPos(mouse_point.x())
+                self.magnitude_cursor.setPos(x_pos)
             if hasattr(self, 'phase_cursor'):
-                self.phase_cursor.setPos(mouse_point.x())
+                self.phase_cursor.setPos(x_pos)
+            
+            # Update cursor position labels
+            if hasattr(self, 'magnitude_cursor_label'):
+                # Get the actual data values at cursor position for magnitude plot
+                magnitude_data = self.magnitude_plot_item.getData()
+                if magnitude_data[0] is not None and magnitude_data[1] is not None and len(magnitude_data[0]) > 0:
+                    # Find closest data point to cursor
+                    freq_data = magnitude_data[0]
+                    mag_data = magnitude_data[1]
+                    
+                    # Interpolate or find nearest point
+                    if x_pos >= freq_data[0] and x_pos <= freq_data[-1]:
+                        # Linear interpolation
+                        y_interp = np.interp(x_pos, freq_data, mag_data)
+                        unit = self._y_unit_label or 'mil'
+                        magnitude_text = f'Magnitude: {x_pos:.1f} {unit}\nFrequency: {y_interp:.3f}hz'
+                    else:
+                        magnitude_text = f'Magnitude: {x_pos:.1f} Hz\nFrequency: {y_pos:.3f}hz'
+                else:
+                    magnitude_text = f'Magnitude: {x_pos:.1f} Hz\nFrequency: {y_pos:.3f}hz'
+                
+                self.magnitude_cursor_label.setText(magnitude_text)
+                # Position label at top right corner
+                self.magnitude_cursor_label.setPos(self.settings.stop_frequency * 0.98, self.magnitude_plot_widget.getViewBox().viewRange()[1][1] * 0.98)
+            
+            if hasattr(self, 'phase_cursor_label'):
+                # Get the actual data values at cursor position for phase plot
+                phase_data = self.phase_plot_item.getData()
+                if phase_data[0] is not None and phase_data[1] is not None and len(phase_data[0]) > 0:
+                    # Find closest data point to cursor
+                    freq_data = phase_data[0]
+                    phase_data_vals = phase_data[1]
+                    
+                    # Interpolate or find nearest point
+                    if x_pos >= freq_data[0] and x_pos <= freq_data[-1]:
+                        # Linear interpolation
+                        y_interp = np.interp(x_pos, freq_data, phase_data_vals)
+                        phase_text = f'Phase: {x_pos:.1f} °\nFrequency: {y_interp:.1f}hz'
+                    else:
+                        phase_text = f'Phase: {x_pos:.1f} Hz\nFrequency: {y_pos:.1f}hz'
+                else:
+                    phase_text = f'Phase: {x_pos:.1f} Hz\nFrequency: {y_pos:.1f}hz'
+                
+                self.phase_cursor_label.setText(phase_text)
+                # Position label at top right corner
+                self.phase_cursor_label.setPos(self.settings.stop_frequency * 0.98, self.phase_plot_widget.getViewBox().viewRange()[1][1] * 0.98)
                 
         except Exception as e:
             logging.error(f"Error in mouse move handler: {e}", exc_info=True)

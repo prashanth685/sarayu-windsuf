@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, 
                             QPushButton, QLabel, QMessageBox, QScrollArea, QComboBox, 
                             QApplication, QTableWidget, QTableWidgetItem, QHeaderView,
-                            QTabWidget, QSpinBox, QDoubleSpinBox)
+                            QTabWidget, QSpinBox, QDoubleSpinBox, QFrame)
 from PyQt5.QtCore import Qt, pyqtSignal
 import sys
 import datetime
@@ -190,28 +190,109 @@ class CreateProjectWidget(QWidget):
         self.setStyleSheet("background-color: #f7f7f9;")
 
         main_layout = QVBoxLayout()
-        main_layout.setAlignment(Qt.AlignCenter)
+        main_layout.setAlignment(Qt.AlignTop)
         main_layout.setSpacing(20)
         main_layout.setContentsMargins(20, 20, 20, 20)
         self.setLayout(main_layout)
         
-        # Create tab widget
-        self.tabs = QTabWidget()
-        main_layout.addWidget(self.tabs)
+        # Create single project card at top level
+        self.create_project_card(main_layout)
         
-        # Create tabs
-        self.general_tab = QWidget()
-        self.advanced_tab = QWidget()
-        self.io_tab = QWidget()
+        # Scroll area for model cards
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background-color: transparent;
+            }
+            QScrollBar:vertical {
+                border: 1px solid #d1d5db;
+                background: #f9fafb;
+                width: 12px;
+                margin: 0px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:vertical {
+                background: #9ca3af;
+                min-height: 20px;
+                border-radius: 6px;
+                border: none;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #6b7280;
+            }
+            QScrollBar::handle:vertical:pressed {
+                background: #4b5563;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+            QScrollBar:horizontal {
+                border: 1px solid #d1d5db;
+                background: #f9fafb;
+                height: 12px;
+                margin: 0px;
+                border-radius: 6px;
+            }
+            QScrollBar::handle:horizontal {
+                background: #9ca3af;
+                min-width: 20px;
+                border-radius: 6px;
+                border: none;
+            }
+            QScrollBar::handle:horizontal:hover {
+                background: #6b7280;
+            }
+            QScrollBar::handle:horizontal:pressed {
+                background: #4b5563;
+            }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                border: none;
+                background: none;
+                width: 0px;
+            }
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+                background: none;
+            }
+        """)
         
-        self.tabs.addTab(self.general_tab, "General")
-        self.tabs.addTab(self.advanced_tab, "Advanced")
-        self.tabs.addTab(self.io_tab, "I/O")
+        scroll_widget = QWidget()
+        scroll_layout = QVBoxLayout()
+        scroll_layout.setAlignment(Qt.AlignTop)
+        scroll_layout.setSpacing(30)
+        scroll_layout.setContentsMargins(20, 20, 20, 20)
+        scroll_widget.setLayout(scroll_layout)
+        scroll_area.setWidget(scroll_widget)
         
-        # Initialize tabs
-        self.init_general_tab()
-        self.init_advanced_tab()
-        self.init_io_tab()
+        # Add scroll area to main layout
+        main_layout.addWidget(scroll_area)
+        
+        # Container for model cards
+        self.model_container = QWidget()
+        self.model_container.setStyleSheet("""
+            QWidget {
+                background-color: transparent;
+                padding: 10px;
+            }
+        """)
+        self.model_layout = QVBoxLayout()
+        self.model_layout.setSpacing(25)
+        self.model_layout.setContentsMargins(15, 15, 15, 15)
+        self.model_container.setLayout(self.model_layout)
+        scroll_layout.addWidget(self.model_container)
+        
+        self.model_inputs = []
+        
+        # Pre-populate models if in edit mode
+        if self.edit_mode and self.existing_models:
+            for model in self.existing_models:
+                self.add_model_input(model)
         
         # Add buttons at the bottom
         self.init_bottom_buttons()
@@ -581,164 +662,67 @@ class CreateProjectWidget(QWidget):
             }
         """
 
-    def init_general_tab(self):
-        """Initialize the General tab with channel table and project details"""
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("""
-            QScrollArea {
-                border: none;
-                background-color: transparent;
-            }
-            QScrollBar:vertical {
-                border: 1px solid #d1d5db;
-                background: #f9fafb;
-                width: 12px;
-                margin: 0px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background: #9ca3af;
-                min-height: 20px;
-                border-radius: 6px;
-                border: none;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #6b7280;
-            }
-            QScrollBar::handle:vertical:pressed {
-                background: #4b5563;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                border: none;
-                background: none;
-                height: 0px;
-            }
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                background: none;
-            }
-            QScrollBar:horizontal {
-                border: 1px solid #d1d5db;
-                background: #f9fafb;
-                height: 12px;
-                margin: 0px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:horizontal {
-                background: #9ca3af;
-                min-width: 20px;
-                border-radius: 6px;
-                border: none;
-            }
-            QScrollBar::handle:horizontal:hover {
-                background: #6b7280;
-            }
-            QScrollBar::handle:horizontal:pressed {
-                background: #4b5563;
-            }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-                border: none;
-                background: none;
-                width: 0px;
-            }
-            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
-                background: none;
-            }
-        """)
-        
-        scroll_widget = QWidget()
-        scroll_layout = QVBoxLayout()
-        scroll_layout.setAlignment(Qt.AlignCenter)
-        scroll_layout.setSpacing(24)
-        scroll_widget.setLayout(scroll_layout)
-        scroll_area.setWidget(scroll_widget)
-        
-        # Main layout for general tab
-        general_layout = QVBoxLayout(self.general_tab)
-        general_layout.addWidget(scroll_area)
-        
-        card_widget = QWidget()
-        card_widget.setStyleSheet("""
-            QWidget {
+    
+    def create_project_card(self, parent_layout):
+        """Create the main project configuration card"""
+        # Main project card container
+        project_card = QFrame()
+        project_card.setStyleSheet("""
+            QFrame {
                 background-color: white;
-                border-radius: 8px;
-                border: 1px solid #e5e7eb;
-                padding: 24px;
+                border: 2px solid #4a90e2;
+                border-radius: 12px;
+                padding: 25px;
+                margin: 15px;
             }
         """)
-        self.card_layout = QVBoxLayout()
-        self.card_layout.setSpacing(16)
-        card_widget.setLayout(self.card_layout)
-        scroll_layout.addWidget(card_widget)
-
-        title_label = QLabel("Edit Project" if self.edit_mode else "Create New Project")
-        title_label.setStyleSheet("""
-            font-size: 20px;
-            font-weight: 600;
-            color: #1a202c;
-            margin-bottom: 8px;
-        """)
-        self.card_layout.addWidget(title_label, alignment=Qt.AlignCenter)
-
-        subtitle_label = QLabel("General Settings")
-        subtitle_label.setStyleSheet("""
-            font-size: 14px;
-            color: #6b7280;
-            margin-bottom: 16px;
-        """)
-        self.card_layout.addWidget(subtitle_label, alignment=Qt.AlignCenter)
-
-        project_details_label = QLabel("Project Details")
-        project_details_label.setStyleSheet("""
-            font-size: 16px;
-            font-weight: 500;
-            color: #1a202c;
-            margin-top: 16px;
-            margin-bottom: 8px;
-        """)
-        self.card_layout.addWidget(project_details_label)
-
-        project_form = QFormLayout()
-        project_form.setSpacing(12)
-        project_form.setLabelAlignment(Qt.AlignLeft)
-        project_form.setFormAlignment(Qt.AlignCenter)
+        project_card.setMinimumHeight(160)
+        project_card.setMaximumHeight(160)
+        
+        card_layout = QHBoxLayout(project_card)
+        card_layout.setContentsMargins(30, 25, 30, 25)
+        card_layout.setSpacing(40)
+        
+        # Project Name Section
+        name_section = QVBoxLayout()
+        name_section.setSpacing(10)
+        
         self.project_name_input = QLineEdit()
-        self.project_name_input.setPlaceholderText("Project name")
+        self.project_name_input.setPlaceholderText("Enter project name")
         if self.edit_mode and self.existing_project_name:
             self.project_name_input.setText(self.existing_project_name)
         self.project_name_input.setStyleSheet("""
             QLineEdit {
-                border: 1px solid #d1d5db;
-                border-radius: 4px;
-                padding: 8px;
-                font-size: 14px;
-                min-width: 400px;
+                border: 3px solid #d1d5db;
+                border-radius: 10px;
+                padding: 18px;
+                font-size: 18px;
+                font-weight: 500;
                 background-color: #ffffff;
+                min-width: 320px;
+                min-height: 25px;
+                color: #1a202c;
             }
             QLineEdit:focus {
                 border-color: #3b82f6;
                 outline: none;
+                border-width: 4px;
             }
             QLineEdit:hover {
                 border-color: #93c5fd;
+                border-width: 3px;
+            }
+            QLineEdit::placeholder {
+                color: #6b7280;
+                font-weight: 500;
             }
         """)
-        project_form.addRow("Project Name:", self.project_name_input)
+        name_section.addWidget(self.project_name_input)
+        card_layout.addLayout(name_section)
         
-        # Add more fields to the general tab as needed
-        
-        self.card_layout.addLayout(project_form)
-        
-        # Add channel table section
-        channel_section = QLabel("Channel Configuration")
-        channel_section.setStyleSheet("""
-            font-size: 16px;
-            font-weight: 500;
-            color: #1a202c;
-            margin-top: 16px;
-            margin-bottom: 8px;
-        """)
-        self.card_layout.addWidget(channel_section)
+        # Channel Count Section
+        channel_section = QVBoxLayout()
+        channel_section.setSpacing(10)
         
         self.channel_count_combo = QComboBox()
         self.channel_count_combo.addItems(self.available_channel_counts)
@@ -746,33 +730,55 @@ class CreateProjectWidget(QWidget):
             self.channel_count_combo.setCurrentText(self.existing_channel_count)
         self.channel_count_combo.setStyleSheet("""
             QComboBox {
-                border: 1px solid #d1d5db;
-                border-radius: 4px;
-                padding: 8px;
-                font-size: 14px;
-                min-width: 400px;
+                border: 3px solid #d1d5db;
+                border-radius: 10px;
+                padding: 18px;
+                font-size: 18px;
+                font-weight: 500;
                 background-color: #ffffff;
-                color: #000000;
+                color: #1a202c;
+                min-width: 200px;
+                min-height: 25px;
             }
             QComboBox:focus {
                 border-color: #3b82f6;
                 outline: none;
+                border-width: 4px;
             }
             QComboBox:hover {
                 border-color: #93c5fd;
+                border-width: 3px;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 40px;
+                padding-right: 15px;
+            }
+            QComboBox::down-arrow {
+                image: none;
+                width: 0;
+                height: 0;
+                border-left: 10px solid transparent;
+                border-right: 10px solid transparent;
+                border-top: 10px solid #374151;
+                margin-right: 15px;
             }
             QComboBox QAbstractItemView {
-                border: 1px solid #d1d5db;
+                border: 3px solid #d1d5db;
                 background-color: #ffffff;
-                color: #000000;
+                color: #1a202c;
                 selection-background-color: #3b82f6;
                 selection-color: #ffffff;
-                padding: 4px;
+                padding: 12px;
+                border-radius: 8px;
             }
             QComboBox QAbstractItemView::item {
-                padding: 6px 8px;
-                min-height: 20px;
-                color: #000000;
+                padding: 15px 20px;
+                min-height: 35px;
+                color: #1a202c;
+                font-size: 17px;
+                font-weight: 500;
+                border-radius: 6px;
             }
             QComboBox QAbstractItemView::item:selected {
                 background-color: #3b82f6;
@@ -780,89 +786,34 @@ class CreateProjectWidget(QWidget):
             }
         """)
         self.channel_count_combo.currentTextChanged.connect(self.update_table)
-        project_form.addRow("Channel Count:", self.channel_count_combo)
-        self.card_layout.addLayout(project_form)
-
+        channel_section.addWidget(self.channel_count_combo)
+        card_layout.addLayout(channel_section)
+        
+        # Add Model Button
         add_model_button = QPushButton("+ Add Model")
         add_model_button.setStyleSheet("""
             QPushButton {
-                background-color: #3b82f6;
+                background-color: #10b981;
                 color: white;
-                border-radius: 4px;
-                padding: 8px;
-                font-size: 14px;
-                font-weight: 500;
-                min-width: 120px;
+                border: none;
+                border-radius: 12px;
+                padding: 18px 32px;
+                font-size: 18px;
+                font-weight: 700;
+                min-width: 160px;
+                min-height: 25px;
             }
             QPushButton:hover {
-                background-color: #2563eb;
+                background-color: #059669;
             }
             QPushButton:pressed {
-                background-color: #1d4ed8;
+                background-color: #047857;
             }
         """)
         add_model_button.clicked.connect(self.add_model_input)
-        self.card_layout.addWidget(add_model_button, alignment=Qt.AlignRight)
-
-        self.model_layout = QVBoxLayout()
-        self.model_layout.setSpacing(16)
-        self.model_inputs = []
-        self.card_layout.addLayout(self.model_layout)
-
-        # Pre-populate models if in edit mode
-        if self.edit_mode and self.existing_models:
-            for model in self.existing_models:
-                self.add_model_input(model)
-
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
-        button_layout.setAlignment(Qt.AlignLeft)
-
-        back_button = QPushButton("Back")
-        back_button.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #6b7280;
-                border: 1px solid #d1d5db;
-                border-radius: 4px;
-                padding: 8px;
-                font-size: 14px;
-                font-weight: 500;
-                min-width: 100px;
-            }
-            QPushButton:hover {
-                background-color: #f1f5f9;
-            }
-            QPushButton:pressed {
-                background-color: #e2e8f0;
-            }
-        """)
-        back_button.clicked.connect(self.back_to_select)
-        button_layout.addWidget(back_button)
-
-        create_button = QPushButton("Update Project" if self.edit_mode else "Create Project")
-        create_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                border-radius: 4px;
-                padding: 8px;
-                font-size: 14px;
-                font-weight: 500;
-                min-width: 120px;
-            }
-            QPushButton:hover {
-                background-color: #2563eb;
-            }
-            QPushButton:pressed {
-                background-color: #1d4ed8;
-            }
-        """)
-        create_button.clicked.connect(self.submit_project)
-        button_layout.addWidget(create_button)
-
-        # Move buttons to bottom of the window
-        self.card_layout.addStretch()
+        card_layout.addWidget(add_model_button, alignment=Qt.AlignCenter)
+        
+        parent_layout.addWidget(project_card)
 
     def update_table(self, channel_count):
         for widget, model_name_input, tag_name_input, channel_inputs, _ in self.model_inputs:
@@ -874,51 +825,88 @@ class CreateProjectWidget(QWidget):
             num_channels = {"DAQ4CH": 4, "DAQ8CH": 8, "DAQ10CH": 10}.get(channel_count, 4)
             table = QTableWidget(num_channels, 12)
             table.setHorizontalHeaderLabels(["S.No.", "Channel Name", "Channel Type", "Sensitivity", "Unit", "Subunit", "Correction Factor", "Gain", "Unit Type", "Angle", "Direction", "Shaft"])
+
             table.setStyleSheet("""
-                QTableWidget {
-                    border: 2px solid #e5e7eb;
-                    border-radius: 8px;
-                    background-color: #ffffff;
-                    padding: 8px;
-                    font-size: 14px;
-                    gridline-color: #e5e7eb;
-                    selection-background-color: #edf2f7;
-                    selection-color: #1a202c;
-                    alternate-background-color: #f9fafb;
-                }
-                QTableWidget::item {
-                    padding: 12px 8px !important;
-                    border-bottom: 1px solid #f1f5f9 !important;
-                    color: #000000 !important;
-                    font-size: 14px !important;
-                    min-height: 45px !important;
-                    background-color: transparent !important;
-                }
-                QTableWidget::item:selected {
-                    background-color: #edf2f7 !important;
-                    color: #000000 !important;
-                }
-                QTableWidget QLineEdit {
-                    color: #000000 !important;
-                    background-color: #ffffff !important;
-                    border: 1px solid #d1d5db !important;
-                    padding: 4px !important;
-                    font-size: 14px !important;
-                }
-                QHeaderView::section {
-                    background-color: #4a5568;
-                    color: white;
-                    padding: 12px;
-                    font-weight: 600;
-                    border: none;
-                    border-bottom: 2px solid #2d3748;
-                    font-size: 14px;
-                    min-height: 55px;
-                }
-            """)
+QTableWidget {
+    background-color: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 15px;
+    gridline-color: #f1f5f9;
+    selection-background-color: #f1f5f9;
+    alternate-background-color: #fafafa;
+}
+
+/* Table Cells */
+QTableWidget::item {
+    padding: 14px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #111827;
+    font-size: 15px;
+}
+
+/* Selected Row */
+QTableWidget::item:selected {
+    background-color: #eef2ff;
+    color: #111827;
+}
+
+/* Header */
+QHeaderView::section {
+    background-color: #f9fafb;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-bottom: 2px solid #e5e7eb;
+    padding: 16px 20px;
+}
+
+/* LineEdit inside table */
+QTableWidget QLineEdit {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 14px;
+    background-color: #ffffff;
+}
+
+/* ComboBox */
+QComboBox {
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 14px;
+    background-color: #ffffff;
+}
+
+QComboBox:hover {
+    border-color: #9ca3af;
+}
+
+QComboBox:focus {
+    border: 1px solid #3b82f6;
+}
+
+/* Dropdown */
+QComboBox QAbstractItemView {
+    border: 1px solid #e5e7eb;
+    background: white;
+    padding: 6px;
+}
+
+QComboBox QAbstractItemView::item {
+    padding: 10px 14px;
+}
+
+QComboBox QAbstractItemView::item:selected {
+    background-color: #3b82f6;
+    color: white;
+}
+""")
             table.horizontalHeader().setVisible(True)
             table.horizontalHeader().setStretchLastSection(True)
-            table.horizontalHeader().setMinimumHeight(55)
+            table.horizontalHeader().setMinimumHeight(48)
             table.horizontalHeader().setDefaultSectionSize(120)
             table.verticalHeader().setVisible(False)
             table.setAlternatingRowColors(True)
@@ -1040,132 +1028,494 @@ class CreateProjectWidget(QWidget):
         channel_count = self.channel_count_combo.currentText()
         num_channels = {"DAQ4CH": 4, "DAQ8CH": 8, "DAQ10CH": 10}.get(channel_count, 4)
 
-        model_widget = QWidget()
-        model_widget.setStyleSheet("""
-            background-color: #fafafa;
-            border-radius: 4px;
-            padding: 16px;
-            border: 1px solid #e5e7eb;
+        # Create collapsible model card
+        model_card = QFrame()
+        model_card.setStyleSheet("""
+            QFrame {
+                background-color: white;
+                border: 2px solid #e5e7eb;
+                border-radius: 12px;
+                margin: 15px;
+            }
         """)
-        model_layout = QVBoxLayout()
-        model_layout.setSpacing(12)
-        model_widget.setLayout(model_layout)
-
-        model_header_layout = QHBoxLayout()
-        model_header_layout.setSpacing(8)
-        model_label = QLabel(f"Model {len(self.model_inputs) + 1}")
-        model_label.setStyleSheet("""
-            font-size: 16px;
-            font-weight: 500;
-            color: #1a202c;
-        """)
-        model_header_layout.addWidget(model_label)
-
-        remove_model_button = QPushButton("Remove Model")
-        remove_model_button.setStyleSheet("""
+        
+        model_main_layout = QVBoxLayout(model_card)
+        model_main_layout.setContentsMargins(25, 20, 25, 20)
+        model_main_layout.setSpacing(20)
+        
+        # Header with collapse/expand and remove buttons
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(20)
+        header_layout.setContentsMargins(0, 0, 0, 10)
+        
+        # Collapse/Expand button
+        collapse_button = QPushButton("▼")
+        collapse_button.setStyleSheet("""
             QPushButton {
-                background-color: transparent;
-                color: #ef4444;
+                background-color: #6b7280;
+                color: white;
                 border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
                 font-size: 14px;
-                font-weight: 500;
+                font-weight: 600;
+                min-width: 40px;
+                max-width: 40px;
             }
             QPushButton:hover {
-                color: #dc2626;
-            }
-            QPushButton:pressed {
-                color: #b91c1c;
+                background-color: #4b5563;
             }
         """)
-        remove_model_button.clicked.connect(lambda: self.remove_model_input(model_widget))
-        model_header_layout.addWidget(remove_model_button, alignment=Qt.AlignRight)
-        model_layout.addLayout(model_header_layout)
-
-        model_form = QFormLayout()
-        model_form.setSpacing(12)
-        model_form.setLabelAlignment(Qt.AlignLeft)
-        model_form.setFormAlignment(Qt.AlignCenter)
-
+        collapse_button.setCheckable(True)
+        collapse_button.setChecked(True)
+        
+        # Model title (editable)
+        model_title_input = QLineEdit()
+        model_title_input.setText(f"Model {len(self.model_inputs) + 1}")
+        model_title_input.setStyleSheet("""
+            QLineEdit {
+                font-size: 18px;
+                font-weight: 600;
+                color: #1a202c;
+                background: transparent;
+                border: 2px solid transparent;
+                border-radius: 6px;
+                padding: 5px 10px;
+            }
+            QLineEdit:focus {
+                border-color: #3b82f6;
+                background-color: rgba(255, 255, 255, 0.9);
+            }
+        """)
+        model_title_input.setReadOnly(False)
+        
+        # Remove button
+        remove_button = QPushButton("✕")
+        remove_button.setStyleSheet("""
+            QPushButton {
+                background-color: #ef4444;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-size: 14px;
+                font-weight: 600;
+                min-width: 40px;
+                max-width: 40px;
+            }
+            QPushButton:hover {
+                background-color: #dc2626;
+            }
+        """)
+        
+        header_layout.addWidget(collapse_button)
+        header_layout.addWidget(model_title_input)
+        header_layout.addStretch()
+        header_layout.addWidget(remove_button)
+        model_main_layout.addLayout(header_layout)
+        
+        # Content container (collapsible)
+        content_widget = QWidget()
+        content_widget.setStyleSheet("""
+            QWidget {
+                background-color: #f9fafb;
+                border-radius: 8px;
+                padding: 5px;
+                margin: 5px 0px;
+            }
+        """)
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setSpacing(5)
+        content_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # No model form fields - only tabs with table
+        
+        # Create tab widget for this model
+        model_tabs = QTabWidget()
+        model_tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: 1px solid #e5e7eb;
+                border-radius: 8px;
+                background-color: white;
+                padding: 5px;
+            }
+            QTabBar::tab {
+                background-color: #f3f4f6;
+                border: 1px solid #d1d5db;
+                border-bottom: none;
+                border-radius: 8px 8px 0 0;
+                padding: 8px 16px;
+                margin-right: 2px;
+                font-size: 14px;
+                font-weight: 500;
+                width:100%
+            }
+            QTabBar::tab:selected {
+                background-color: white;
+                border-bottom: 1px solid white;
+                color: #3b82f6;
+            }
+            QTabBar::tab:hover {
+                background-color: #e5e7eb;
+            }
+        """)
+        
+        # Create tabs for this model
+        model_general_tab = QWidget()
+        model_advanced_tab = QWidget()
+        model_channel_settings_tab = QWidget()
+        
+        model_tabs.addTab(model_general_tab, "General")
+        model_tabs.addTab(model_advanced_tab, "Advanced")
+        model_tabs.addTab(model_channel_settings_tab, "I/O")
+        
+        # Initialize model tabs
+        self.init_model_general_tab(model_general_tab, existing_model, num_channels)
+        self.init_model_advanced_tab(model_advanced_tab, existing_model)
+        self.init_model_channel_settings_tab(model_channel_settings_tab, existing_model)
+        
+        content_layout.addWidget(model_tabs)
+        model_main_layout.addWidget(content_widget)
+        
+        # Connect collapse functionality
+        collapse_button.toggled.connect(lambda checked: self.toggle_model_content(content_widget, collapse_button))
+        remove_button.clicked.connect(lambda: self.remove_model_input(model_card))
+        
+        # Add to model container
+        self.model_layout.addWidget(model_card)
+        
+        # Store model data
+        self.model_inputs.append((model_card, model_title_input, None, model_tabs, channel_count))
+        
+        # Update model numbering
+        self.update_model_numbers()
+    
+    def init_model_general_tab(self, tab_widget, existing_model, num_channels):
+        """Initialize the General tab for a specific model"""
+        layout = QVBoxLayout(tab_widget)
+        layout.setAlignment(Qt.AlignTop)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(5)
+        
+        # Create channel table directly without title
+        table = self.create_channel_table(num_channels, existing_model)
+        layout.addWidget(table)
+        
+        # Store table reference for this model
+        if hasattr(self, 'model_tables'):
+            self.model_tables[len(self.model_inputs)] = table
+        else:
+            self.model_tables = {len(self.model_inputs): table}
+    
+    def init_model_advanced_tab(self, tab_widget, existing_model):
+        """Initialize the Advanced tab for a specific model"""
+        layout = QVBoxLayout(tab_widget)
+        layout.setAlignment(Qt.AlignTop)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+        
+        # Create form for advanced settings
+        form_layout = QFormLayout()
+        form_layout.setSpacing(20)
+        form_layout.setLabelAlignment(Qt.AlignLeft)
+        form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+        
+        # Sampling Frequency
+        sampling_freq = QDoubleSpinBox()
+        sampling_freq.setRange(0.1, 10000.0)
+        sampling_freq.setValue(1000.0)
+        sampling_freq.setSuffix(" Hz")
+        if existing_model and existing_model.get("samplingFrequency"):
+            sampling_freq.setValue(float(existing_model["samplingFrequency"]))
+        sampling_freq.setStyleSheet("""
+            QDoubleSpinBox {
+                min-width: 200px;
+                padding: 8px;
+                border: 1px solid #d1d5db;
+                border-radius: 4px;
+            }
+        """)
+        form_layout.addRow("Sampling Frequency:", sampling_freq)
+        
+        # Input Delta Time
+        delta_time = QDoubleSpinBox()
+        delta_time.setRange(0.001, 10.0)
+        delta_time.setValue(0.1)
+        delta_time.setSuffix(" s")
+        if existing_model and existing_model.get("deltaTime"):
+            delta_time.setValue(float(existing_model["deltaTime"]))
+        delta_time.setStyleSheet("""
+            QDoubleSpinBox {
+                min-width: 200px;
+                padding: 8px;
+                border: 1px solid #d1d5db;
+                border-radius: 4px;
+            }
+        """)
+        form_layout.addRow("Input Delta Time:", delta_time)
+        
+        # Number of Data Points
+        num_data_points = QSpinBox()
+        num_data_points.setRange(100, 1000000)
+        num_data_points.setValue(1000)
+        if existing_model and existing_model.get("numDataPoints"):
+            num_data_points.setValue(int(existing_model["numDataPoints"]))
+        num_data_points.setStyleSheet("""
+            QSpinBox {
+                min-width: 200px;
+                padding: 8px;
+                border: 1px solid #d1d5db;
+                border-radius: 4px;
+            }
+        """)
+        form_layout.addRow("Number of Data Points:", num_data_points)
+        
+        layout.addLayout(form_layout)
+        layout.addStretch()
+        
+        # Store advanced settings for this model
+        if hasattr(self, 'model_advanced_settings'):
+            self.model_advanced_settings[len(self.model_inputs)] = {
+                'sampling_freq': sampling_freq,
+                'delta_time': delta_time,
+                'num_data_points': num_data_points
+            }
+        else:
+            self.model_advanced_settings = {
+                len(self.model_inputs): {
+                    'sampling_freq': sampling_freq,
+                    'delta_time': delta_time,
+                    'num_data_points': num_data_points
+                }
+            }
+    
+    def init_model_channel_settings_tab(self, tab_widget, existing_model):
+        """Initialize the I/O tab for a specific model"""
+        layout = QVBoxLayout(tab_widget)
+        layout.setAlignment(Qt.AlignTop)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+        
+        # Create form for I/O settings
+        form_layout = QFormLayout()
+        form_layout.setSpacing(20)
+        form_layout.setLabelAlignment(Qt.AlignLeft)
+        form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
+        
+        # Model Name Input
         model_name_input = QLineEdit()
-        model_name_input.setPlaceholderText("Model name")
+        model_name_input.setPlaceholderText("Enter model name")
         if existing_model:
             model_name = existing_model.get("name", "")
-            if model_name.startswith(channel_count + "_"):
-                model_name = model_name[len(channel_count) + 1:]
+            if model_name.startswith("DAQ4CH_") or model_name.startswith("DAQ8CH_") or model_name.startswith("DAQ10CH_"):
+                # Remove channel prefix
+                for prefix in ["DAQ4CH_", "DAQ8CH_", "DAQ10CH_"]:
+                    if model_name.startswith(prefix):
+                        model_name = model_name[len(prefix):]
+                        break
             model_name_input.setText(model_name)
         model_name_input.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #d1d5db;
-                border-radius: 4px;
-                padding: 8px;
+                border-radius: 8px;
+                padding: 12px;
                 font-size: 14px;
-                min-width: 400px;
                 background-color: #ffffff;
+                min-width: 300px;
             }
             QLineEdit:focus {
                 border-color: #3b82f6;
                 outline: none;
             }
-            QLineEdit:hover {
-                border-color: #93c5fd;
-            }
         """)
-        model_form.addRow("Model Name:", model_name_input)
-
+        form_layout.addRow("Model Name:", model_name_input)
+        
+        # Tag Name Input
         tag_name_input = QLineEdit()
-        tag_name_input.setPlaceholderText("Tag name")
+        tag_name_input.setPlaceholderText("Enter tag name")
         if existing_model:
             tag_name_input.setText(existing_model.get("tagName", ""))
         tag_name_input.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #d1d5db;
-                border-radius: 4px;
-                padding: 8px;
+                border-radius: 8px;
+                padding: 12px;
                 font-size: 14px;
-                min-width: 400px;
                 background-color: #ffffff;
+                min-width: 300px;
             }
             QLineEdit:focus {
                 border-color: #3b82f6;
                 outline: none;
             }
-            QLineEdit:hover {
-                border-color: #93c5fd;
+        """)
+        form_layout.addRow("Tag Name:", tag_name_input)
+        
+        # IP Address Input
+        ip_address = QLineEdit()
+        ip_address.setPlaceholderText("Enter IP Address")
+        if existing_model and existing_model.get("ipAddress"):
+            ip_address.setText(existing_model["ipAddress"])
+        ip_address.setStyleSheet("""
+            QLineEdit {
+                min-width: 200px;
+                padding: 8px;
+                border: 1px solid #d1d5db;
+                border-radius: 4px;
+            }
+            QLineEdit:focus {
+                border-color: #3b82f6;
             }
         """)
-        model_form.addRow("Tag Name:", tag_name_input)
-        model_layout.addLayout(model_form)
-
-        channels_label = QLabel("Channels")
-        channels_label.setStyleSheet("""
-            font-size: 14px;
-            font-weight: 500;
-            color: #1a202c;
-            margin-top: 8px;
-            margin-bottom: 8px;
+        form_layout.addRow("IP Address:", ip_address)
+        
+        # Send Button
+        send_btn = QPushButton("Send Sensitivity Values")
+        send_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3b82f6;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 12px 20px;
+                font-weight: 500;
+                min-width: 180px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+            QPushButton:disabled {
+                background-color: #9ca3af;
+            }
         """)
-        model_layout.addWidget(channels_label)
-
+        send_btn.clicked.connect(lambda: self.send_sensitivity_values_for_model(len(self.model_inputs), ip_address, tag_name_input))
+        form_layout.addRow("", send_btn)
+        
+        layout.addLayout(form_layout)
+        layout.addStretch()
+        
+        # Store I/O settings for this model
+        if hasattr(self, 'model_io_settings'):
+            self.model_io_settings[len(self.model_inputs)] = {
+                'model_name': model_name_input,
+                'tag_name': tag_name_input,
+                'ip_address': ip_address,
+                'send_btn': send_btn
+            }
+        else:
+            self.model_io_settings = {
+                len(self.model_inputs): {
+                    'model_name': model_name_input,
+                    'tag_name': tag_name_input,
+                    'ip_address': ip_address,
+                    'send_btn': send_btn
+                }
+            }
+    
+    def send_sensitivity_values_for_model(self, model_index, ip_address_input, tag_name_input):
+        """Send sensitivity values for a specific model via MQTT"""
+        try:
+            import paho.mqtt.publish as publish
+            
+            # Get values from UI
+            ip_address = ip_address_input.text().strip()
+            tag_name = tag_name_input.text().strip()
+            
+            # Validate inputs
+            if not ip_address:
+                msg = show_message_box("Error", "Please enter an IP address", QMessageBox.Warning)
+                msg.exec_()
+                return
+                
+            if not tag_name:
+                msg = show_message_box("Error", "Please enter a tag name", QMessageBox.Warning)
+                msg.exec_()
+                return
+            
+            # Get sensitivity values from the model's table
+            sensitivity_values = []
+            if hasattr(self, 'model_tables') and model_index in self.model_tables:
+                table = self.model_tables[model_index]
+                for row in range(table.rowCount()):
+                    sensitivity_item = table.item(row, 3)
+                    if sensitivity_item and sensitivity_item.text().strip():
+                        try:
+                            value = float(sensitivity_item.text().strip())
+                            sensitivity_values.append(value)
+                        except ValueError:
+                            msg = show_message_box("Error", f"Invalid sensitivity value in row {row+1}. Please enter a valid number.", QMessageBox.Warning)
+                            msg.exec_()
+                            return
+            
+            if not sensitivity_values:
+                msg = show_message_box("Error", "No sensitivity values found in the table.", QMessageBox.Warning)
+                msg.exec_()
+                return
+            
+            # Send MQTT message
+            if hasattr(self, 'model_io_settings') and model_index in self.model_io_settings:
+                send_btn = self.model_io_settings[model_index]['send_btn']
+                send_btn.setEnabled(False)
+                send_btn.setText("Sending...")
+                QApplication.processEvents()  # Update UI
+                
+                try:
+                    publish.single(
+                        tag_name,
+                        payload=str({"sensitivity": sensitivity_values}),
+                        hostname=ip_address,
+                        port=1883,
+                        qos=1,
+                        retain=False
+                    )
+                    msg = show_message_box("Success", 
+                        f"Successfully sent {len(sensitivity_values)} sensitivity values to {tag_name}", QMessageBox.Information)
+                    msg.exec_()
+                except Exception as e:
+                    msg = show_message_box("Error", 
+                        f"Failed to send sensitivity values: {str(e)}\n\n"
+                        f"Please check the IP address and MQTT broker status.", QMessageBox.Critical)
+                    msg.exec_()
+                finally:
+                    send_btn.setEnabled(True)
+                    send_btn.setText("Send Sensitivity Values")
+                    
+        except ImportError:
+            msg = show_message_box("Error", 
+                "MQTT client library not found. Please install it using: pip install paho-mqtt", QMessageBox.Critical)
+            msg.exec_()
+        except Exception as e:
+            msg = show_message_box("Error", 
+                f"An unexpected error occurred: {str(e)}", QMessageBox.Critical)
+            msg.exec_()
+            if hasattr(self, 'model_io_settings') and model_index in self.model_io_settings:
+                send_btn = self.model_io_settings[model_index]['send_btn']
+                send_btn.setEnabled(True)
+                send_btn.setText("Send Sensitivity Values")
+    
+    def create_channel_table(self, num_channels, existing_model=None):
         table = QTableWidget(num_channels, 12)
         table.setHorizontalHeaderLabels(["S.No.", "Channel Name", "Channel Type", "Sensitivity", "Unit", "Subunit", "Correction Factor", "Gain", "Unit Type", "Angle", "Direction", "Shaft"])
         table.setStyleSheet("""
             QTableWidget {
                 background-color: #ffffff;
                 border: 2px solid #e5e7eb;
-                border-radius: 8px;
-                font-size: 14px;
+                border-radius: 10px;
+                font-size: 16px;
                 gridline-color: #e5e7eb;
                 selection-background-color: #edf2f7;
                 selection-color: #1a202c;
                 alternate-background-color: #f9fafb;
-                padding: 4px;
+                margin: 20px 0px;
             }
             QTableWidget::item {
-                padding: 12px 8px !important;
                 border: none !important;
-                min-height: 45px !important;
+                min-height: 60px !important;
                 color: #000000 !important;
-                font-size: 14px !important;
+                padding:10px 25px;
+                font-size: 16px !important;
+                font-weight: 500 !important;
                 background-color: transparent !important;
             }
             QTableWidget::item:selected {
@@ -1175,151 +1525,217 @@ class CreateProjectWidget(QWidget):
             QTableWidget QLineEdit {
                 color: #000000 !important;
                 background-color: #ffffff !important;
-                border: 1px solid #d1d5db !important;
-                padding: 4px !important;
-                font-size: 14px !important;
+                border: 2px solid #d1d5db !important;
+                padding: 15px !important;
+                font-size: 16px !important;
+                font-weight: 500 !important;
+                border-radius: 8px !important;
+            }
+            QHeaderView {
+                background-color: #374151;
+                color: white;
+                border: none;
+                padding:10px 5px;
+                border-bottom: 3px solid #e5e7eb;
             }
             QHeaderView::section {
-                background-color: #4a5568;
+                background-color: #374151;
                 color: white;
-                height: 55px;
-                font-weight: 600;
-                font-size: 14px;
+                height: 40px;
+                font-weight: 500;
+                font-size: 16px;
                 border: none;
-                border-bottom: 2px solid #e5e7eb;
-                padding: 8px 12px;
+                text-align: center;
+            }
+            QHeaderView::section:first {
+                border-top-left-radius: 8px;
+            }
+            QHeaderView::section:last {
+                border-top-right-radius: 8px;
+                border-right: none;
+            }
+            QHeaderView::section:hover {
+                background-color: #4b5563;
+            }
+            QHeaderView::section:pressed {
+                background-color: #6b7280;
+            }
+            QComboBox {
+                border: 2px solid #d1d5db;
+                border-radius: 8px;
+                padding: 12px 8px;
+                font-size: 15px;
+                font-weight: 500;
+                background-color: #ffffff;
+                color: #000000;
+                min-width: 100px;
+            }
+            QComboBox:focus {
+                border-color: #3b82f6;
+            }
+            QComboBox QAbstractItemView {
+                border: 2px solid #d1d5db;
+                background-color: #ffffff;
+                color: #000000;
+                selection-background-color: #3b82f6;
+                selection-color: #ffffff;
+                padding: 10px;
+                border-radius: 6px;
+                font-size: 15px;
+                font-weight: 500;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 12px 15px;
+                min-height: 30px;
+                color: #000000;
+                font-size: 15px;
+                font-weight: 500;
+                border-radius: 4px;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #3b82f6;
+                color: #ffffff;
             }
         """)
         table.horizontalHeader().setVisible(True)
-        table.horizontalHeader().setStretchLastSection(True)
-        table.horizontalHeader().setMinimumHeight(55)
-        table.horizontalHeader().setDefaultSectionSize(120)
+        table.horizontalHeader().setStretchLastSection(False)
+        table.horizontalHeader().setMinimumHeight(70)
+        table.horizontalHeader().setDefaultSectionSize(140)
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
         table.verticalHeader().setVisible(False)
         table.setAlternatingRowColors(True)
         table.setEditTriggers(QTableWidget.AllEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectRows)
         table.setSelectionMode(QTableWidget.SingleSelection)
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
-        table.verticalHeader().setDefaultSectionSize(50)
-        table.setMinimumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 40)
-        table.setMaximumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 40)
-        table.setMinimumWidth(1200)
-        table.resizeColumnsToContents()
+        table.verticalHeader().setDefaultSectionSize(56)
+        table.setMinimumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 50)
+        table.setMaximumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 50)
+        table.setMinimumWidth(1000)
         
-        # Set specific column widths for better layout
+        # Set specific column widths
         header = table.horizontalHeader()
-        header.resizeSection(0, 60)   # S.No.
-        header.resizeSection(1, 150)  # Channel Name
-        header.resizeSection(2, 120)  # Channel Type
-        header.resizeSection(3, 100)  # Sensitivity
-        header.resizeSection(4, 80)   # Unit
-        header.resizeSection(5, 80)   # Subunit
-        header.resizeSection(6, 120)  # Correction Factor
-        header.resizeSection(7, 80)   # Gain
-        header.resizeSection(8, 100)  # Unit Type
+        header.resizeSection(0, 70)   # S.No.
+        header.resizeSection(1, 180)  # Channel Name
+        header.resizeSection(2, 140)  # Channel Type
+        header.resizeSection(3, 120)  # Sensitivity
+        header.resizeSection(4, 90)   # Unit
+        header.resizeSection(5, 90)   # Subunit
+        header.resizeSection(6, 140)  # Correction Factor
+        header.resizeSection(7, 90)   # Gain
+        header.resizeSection(8, 120)  # Unit Type
         header.resizeSection(9, 80)   # Angle
-        header.resizeSection(10, 100) # Direction
+        header.resizeSection(10, 120) # Direction
         header.resizeSection(11, 80)  # Shaft
-
+        
+        # Populate table with existing data or defaults
         if existing_model and existing_model.get("channels"):
             for row, channel in enumerate(existing_model["channels"]):
                 if row >= num_channels:
                     break
-                item = QTableWidgetItem(str(row + 1))
-                item.setTextAlignment(Qt.AlignCenter)
-                table.setItem(row, 0, item)
-                table.setItem(row, 1, QTableWidgetItem(channel.get("channelName", "")))
-                
-                type_combo = QComboBox()
-                type_combo.addItems(self.available_types)
-                type_combo.setCurrentText(channel.get("type", "Displacement"))
-                type_combo.setStyleSheet(self.get_combo_box_style())
-                type_combo.currentIndexChanged.connect(lambda _, r=row: self.update_unit_combo(table, r))
-                table.setCellWidget(row, 2, type_combo)
-                
-                table.setItem(row, 3, QTableWidgetItem(channel.get("sensitivity", "")))
-                
-                unit_combo = QComboBox()
-                current_type = type_combo.currentText()
-                unit_items = self.available_units_displacement if current_type == "Displacement" else self.available_units_accvel
-                unit_combo.addItems(unit_items)
-                unit_combo.setCurrentText(channel.get("unit", unit_items[0]))
-                unit_combo.setStyleSheet(self.get_combo_box_style())
-                unit_combo.currentTextChanged.connect(lambda text, r=row: self.update_unit_type_based_on_unit(table, r))
-                table.setCellWidget(row, 4, unit_combo)
-
-                subunit_combo = QComboBox()
-                subunit_combo.addItems(["pp", "pk", "rms"])
-                sub_val = str(channel.get("subunit", "pp") or "pp").lower()
-                subunit_combo.setCurrentText("pp" if sub_val in ("pp", "pk-pk", "peak to peak") else ("pk" if sub_val in ("pk", "peak") else "rms"))
-                subunit_combo.setStyleSheet(self.get_combo_box_style())
-                table.setCellWidget(row, 5, subunit_combo)
-                
-                table.setItem(row, 6, QTableWidgetItem(channel.get("correctionValue", "")))
-                table.setItem(row, 7, QTableWidgetItem(channel.get("gain", "")))
-                unit_type_combo = QComboBox()
-                unit_type_combo.addItems(self.available_unit_types)
-                # Prefer existing channel unitType, else infer from unit
-                existing_unit_type = channel.get("unitType")
-                inferred_unit_type = "Volts" if str(channel.get("unit", "")).lower() == "v" else "Displacement"
-                unit_type_combo.setCurrentText(existing_unit_type if existing_unit_type in self.available_unit_types else inferred_unit_type)
-                unit_type_combo.setStyleSheet(self.get_combo_box_style())
-                table.setCellWidget(row, 8, unit_type_combo)
-                table.setItem(row, 9, QTableWidgetItem(channel.get("angle", "")))
-                
-                direction_combo = QComboBox()
-                direction_combo.addItems(self.available_directions)
-                direction_combo.setCurrentText(channel.get("angleDirection", "Right"))
-                direction_combo.setStyleSheet(self.get_combo_box_style())
-                table.setCellWidget(row, 10, direction_combo)
-                
-                table.setItem(row, 11, QTableWidgetItem(channel.get("shaft", "")))
+                self.populate_channel_row(table, row, channel)
         else:
             for row in range(num_channels):
-                item = QTableWidgetItem(str(row + 1))
-                item.setTextAlignment(Qt.AlignCenter)
-                table.setItem(row, 0, item)
-                table.setItem(row, 1, QTableWidgetItem(""))
-                
-                type_combo = QComboBox()
-                type_combo.addItems(self.available_types)
-                type_combo.setCurrentText("Displacement")
-                type_combo.setStyleSheet(self.get_combo_box_style())
-                type_combo.currentIndexChanged.connect(lambda _, r=row: self.update_unit_combo(table, r))
-                table.setCellWidget(row, 2, type_combo)
-                
-                table.setItem(row, 3, QTableWidgetItem(""))
-                
-                unit_combo = QComboBox()
-                unit_combo.addItems(self.available_units_displacement)
-                unit_combo.setCurrentText("mil")
-                unit_combo.setStyleSheet(self.get_combo_box_style())
-                unit_combo.currentTextChanged.connect(lambda text, r=row: self.update_unit_type_based_on_unit(table, r))
-                table.setCellWidget(row, 4, unit_combo)
+                self.populate_channel_row(table, row)
+        
+        return table
+    
+    def populate_channel_row(self, table, row, channel_data=None):
+        """Populate a single row in the channel table"""
+        # S.No.
+        item = QTableWidgetItem(str(row + 1))
+        item.setTextAlignment(Qt.AlignCenter)
+        table.setItem(row, 0, item)
+        
+        # Channel Name
+        table.setItem(row, 1, QTableWidgetItem(channel_data.get("channelName", "") if channel_data else ""))
+        
+        # Channel Type
+        type_combo = QComboBox()
+        type_combo.addItems(self.available_types)
+        type_combo.setCurrentText(channel_data.get("type", "Displacement") if channel_data else "Displacement")
+        type_combo.setStyleSheet(self.get_combo_box_style())
+        type_combo.currentIndexChanged.connect(lambda _, r=row: self.update_unit_combo(table, r))
+        table.setCellWidget(row, 2, type_combo)
+        
+        # Sensitivity
+        table.setItem(row, 3, QTableWidgetItem(channel_data.get("sensitivity", "") if channel_data else ""))
+        
+        # Unit
+        unit_combo = QComboBox()
+        current_type = type_combo.currentText()
+        unit_items = self.available_units_displacement if current_type == "Displacement" else self.available_units_accvel
+        unit_combo.addItems(unit_items)
+        unit_combo.setCurrentText(channel_data.get("unit", unit_items[0]) if channel_data else unit_items[0])
+        unit_combo.setStyleSheet(self.get_combo_box_style())
+        unit_combo.currentTextChanged.connect(lambda text, r=row: self.update_unit_type_based_on_unit(table, r))
+        table.setCellWidget(row, 4, unit_combo)
 
-                subunit_combo = QComboBox()
-                subunit_combo.addItems(["pp", "pk", "rms"])
-                subunit_combo.setCurrentText("pp")
-                subunit_combo.setStyleSheet(self.get_combo_box_style())
-                table.setCellWidget(row, 5, subunit_combo)
-                
-                table.setItem(row, 6, QTableWidgetItem(""))
-                table.setItem(row, 7, QTableWidgetItem(""))
-                table.setItem(row, 8, QTableWidgetItem(""))
-                table.setItem(row, 9, QTableWidgetItem(""))
-                
-                direction_combo = QComboBox()
-                direction_combo.addItems(self.available_directions)
-                direction_combo.setCurrentText("Right")
-                direction_combo.setStyleSheet(self.get_combo_box_style())
-                table.setCellWidget(row, 10, direction_combo)
-                
-                table.setItem(row, 11, QTableWidgetItem(""))
-
-        model_layout.addWidget(table)
-
-        self.model_inputs.append((model_widget, model_name_input, tag_name_input, [(table, num_channels)], channel_count))
-        self.model_layout.addWidget(model_widget)
+        # Subunit
+        subunit_combo = QComboBox()
+        subunit_combo.addItems(["pp", "pk", "rms"])
+        if channel_data:
+            sub_val = str(channel_data.get("subunit", "pp") or "pp").lower()
+            subunit_combo.setCurrentText("pp" if sub_val in ("pp", "pk-pk", "peak to peak") else ("pk" if sub_val in ("pk", "peak") else "rms"))
+        else:
+            subunit_combo.setCurrentText("pp")
+        subunit_combo.setStyleSheet(self.get_combo_box_style())
+        table.setCellWidget(row, 5, subunit_combo)
+        
+        # Correction Factor
+        table.setItem(row, 6, QTableWidgetItem(channel_data.get("correctionValue", "") if channel_data else ""))
+        
+        # Gain
+        table.setItem(row, 7, QTableWidgetItem(channel_data.get("gain", "") if channel_data else ""))
+        
+        # Unit Type
+        unit_type_combo = QComboBox()
+        unit_type_combo.addItems(self.available_unit_types)
+        if channel_data:
+            existing_unit_type = channel_data.get("unitType")
+            inferred_unit_type = "Volts" if str(channel_data.get("unit", "")).lower() == "v" else "Displacement"
+            unit_type_combo.setCurrentText(existing_unit_type if existing_unit_type in self.available_unit_types else inferred_unit_type)
+        else:
+            unit_type_combo.setCurrentText("Displacement")
+        unit_type_combo.setStyleSheet(self.get_combo_box_style())
+        table.setCellWidget(row, 8, unit_type_combo)
+        
+        # Angle
+        table.setItem(row, 9, QTableWidgetItem(channel_data.get("angle", "") if channel_data else ""))
+        
+        # Direction
+        direction_combo = QComboBox()
+        direction_combo.addItems(self.available_directions)
+        direction_combo.setCurrentText(channel_data.get("angleDirection", "Right") if channel_data else "Right")
+        direction_combo.setStyleSheet(self.get_combo_box_style())
+        table.setCellWidget(row, 10, direction_combo)
+        
+        # Shaft
+        table.setItem(row, 11, QTableWidgetItem(channel_data.get("shaft", "") if channel_data else ""))
+    
+    def toggle_model_content(self, content_widget, collapse_button):
+        """Toggle visibility of model content and update button text"""
+        if content_widget.isVisible():
+            content_widget.hide()
+            collapse_button.setText("▶")
+        else:
+            content_widget.show()
+            collapse_button.setText("▼")
+    
+    def update_model_numbers(self):
+        """Update model numbers after removal"""
+        for i, (widget, model_title_input, _, _, _) in enumerate(self.model_inputs):
+            # Only update if the user hasn't changed the default name
+            current_text = model_title_input.text().strip()
+            if current_text.startswith("Model "):
+                try:
+                    model_num = int(current_text.split(" ")[1])
+                    if model_num != i + 1:
+                        model_title_input.setText(f"Model {i + 1}")
+                except (ValueError, IndexError):
+                    model_title_input.setText(f"Model {i + 1}")
+            else:
+                # Keep user's custom name, just update numbering for new models
+                pass
 
     def add_channel_to_table(self, table):
         current_rows = table.rowCount()
@@ -1386,22 +1802,25 @@ class CreateProjectWidget(QWidget):
         header.resizeSection(10, 100) # Direction
         header.resizeSection(11, 80)  # Shaft
 
-    def remove_model_input(self, model_widget):
+    def remove_model_input(self, model_card):
+        """Remove a model card and update numbering"""
         if len(self.model_inputs) > 1 or not self.edit_mode:
-            for inputs in self.model_inputs:
-                if inputs[0] == model_widget:
+            # Find and remove the model input data
+            for i, inputs in enumerate(self.model_inputs):
+                if inputs[0] == model_card:
                     self.model_inputs.remove(inputs)
-                    self.model_layout.removeWidget(model_widget)
-                    model_widget.deleteLater()
-                    for i, (widget, _, _, _, _) in enumerate(self.model_inputs):
-                        widget.layout().itemAt(0).layout().itemAt(0).widget().setText(f"Model {i + 1}")
                     break
+            
+            # Remove the widget from layout
+            self.model_layout.removeWidget(model_card)
+            model_card.deleteLater()
+            
+            # Update model numbering
+            self.update_model_numbers()
 
     def submit_project(self):
         project_name = self.project_name_input.text().strip()
         channel_count = self.channel_count_combo.currentText()
-        ip_address = self.ip_address.text().strip()
-        tag_name = self.tag_name.text().strip()
         
         if not project_name:
             msg = show_message_box("Error", "Project name cannot be empty!", QMessageBox.Warning)
@@ -1414,16 +1833,32 @@ class CreateProjectWidget(QWidget):
             return
 
         self.models = []
-        for _, model_name_input, tag_name_input, channel_inputs, _ in self.model_inputs:
-            model_name = model_name_input.text().strip()
-            tag_name = tag_name_input.text().strip()
+        for i, (widget, model_title_input, _, model_tabs, channel_count) in enumerate(self.model_inputs):
+            # Get model name from I/O tab or title input
+            model_name = ""
+            tag_name = ""
+            
+            # Try to get values from I/O tab
+            if hasattr(self, 'model_io_settings') and i in self.model_io_settings:
+                io_settings = self.model_io_settings[i]
+                if 'model_name' in io_settings:
+                    model_name = io_settings['model_name'].text().strip()
+                if 'tag_name' in io_settings:
+                    tag_name = io_settings['tag_name'].text().strip()
+            
+            # Fallback to title input if I/O tab values are empty
             if not model_name:
-                msg = show_message_box("Error", f"Model name cannot be empty for model {len(self.models) + 1}!", QMessageBox.Warning)
+                model_name = model_title_input.text().strip()
+            
+            if not model_name:
+                msg = show_message_box("Error", f"Model name cannot be empty for model {i + 1}!", QMessageBox.Warning)
                 msg.exec_()
                 return
 
+            # Get channels from the model's table
             channels = []
-            for table, num_channels in channel_inputs:
+            if hasattr(self, 'model_tables') and i in self.model_tables:
+                table = self.model_tables[i]
                 for row in range(table.rowCount()):
                     channel_name = table.item(row, 1).text().strip() if table.item(row, 1) else ""
                     if not channel_name:
@@ -1449,17 +1884,38 @@ class CreateProjectWidget(QWidget):
                 msg.exec_()
                 return
 
+            # Get advanced settings if available
+            advanced_settings = {}
+            if hasattr(self, 'model_advanced_settings') and i in self.model_advanced_settings:
+                settings = self.model_advanced_settings[i]
+                advanced_settings = {
+                    "samplingFrequency": settings['sampling_freq'].value(),
+                    "deltaTime": settings['delta_time'].value(),
+                    "numDataPoints": settings['num_data_points'].value()
+                }
+
+            # Get I/O settings if available
+            io_settings_data = {}
+            if hasattr(self, 'model_io_settings') and i in self.model_io_settings:
+                settings = self.model_io_settings[i]
+                io_settings_data = {
+                    "ipAddress": settings['ip_address'].text().strip(),
+                    "tagName": settings['tag_name'].text().strip()
+                }
+
             self.models.append({
                 "name": f"{channel_count}_{model_name}",
                 "tagName": tag_name,
-                "channels": channels
+                "channels": channels,
+                **advanced_settings,
+                **io_settings_data
             })
 
         try:
             if self.edit_mode:
-                self.project_edited.emit(project_name, self.models, channel_count, ip_address, tag_name)
+                self.project_edited.emit(project_name, self.models, channel_count, "", "")
             else:
-                success, message = self.db.create_project(project_name, self.models, channel_count, ip_address, tag_name)
+                success, message = self.db.create_project(project_name, self.models, channel_count, "", "")
                 if success:
                     msg = show_message_box("Success", "Project created successfully!", QMessageBox.Information)
                     msg.exec_()
@@ -1470,35 +1926,6 @@ class CreateProjectWidget(QWidget):
                     msg = show_message_box("Error", message, QMessageBox.Warning)
                     msg.exec_()
                     return
-            
-            # Send sensitivity values via MQTT if IP address and tag name are provided
-            if ip_address and tag_name and hasattr(self.parent, 'mqtt_handler') and self.parent.mqtt_handler:
-                try:
-                    # Extract sensitivity values from all channels
-                    sensitivity_values = []
-                    for model in self.models:
-                        for channel in model.get("channels", []):
-                            sensitivity = channel.get("sensitivity", "").strip()
-                            if sensitivity:
-                                try:
-                                    # Convert to float if possible, otherwise keep as string
-                                    sensitivity_values.append(float(sensitivity))
-                                except ValueError:
-                                    sensitivity_values.append(sensitivity)
-                    
-                    if sensitivity_values:
-                        mqtt_success, mqtt_message = self.parent.mqtt_handler.send_sensitivity_values(
-                            ip_address, tag_name, sensitivity_values
-                        )
-                        if mqtt_success:
-                            logging.info(f"Sensitivity values sent via MQTT: {sensitivity_values}")
-                        else:
-                            logging.warning(f"Failed to send sensitivity values via MQTT: {mqtt_message}")
-                    else:
-                        logging.warning("No sensitivity values found to send via MQTT")
-                        
-                except Exception as e:
-                    logging.error(f"Error sending sensitivity values via MQTT: {str(e)}")
                     
         except Exception as e:
             logging.error(f"Error submitting project: {str(e)}")

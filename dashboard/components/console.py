@@ -60,7 +60,7 @@ class Console(QWidget):
         button_layout.addWidget(self.maximize_button)
         self.console_message_area = QPlainTextEdit()
         self.console_message_area.setReadOnly(True)
-        self.console_message_area.setFixedHeight(200)
+        self.console_message_area.setFixedHeight(100)
         self.console_message_area.setStyleSheet("""
             QPlainTextEdit { 
                 background-color: #0a0a0a; 
