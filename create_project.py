@@ -9,7 +9,7 @@ import logging
 
 app = QApplication.instance()
 if app:
-    # Global stylesheet for QMessageBox and QComboBox
+    # Global stylesheet for QMessageBox, QComboBox, and Scrollbars
     app.setStyleSheet("""
     QMessageBox {
         background-color: #ffffff !important;
@@ -127,7 +127,72 @@ if app:
         background-color: #3b82f6;
         color: #ffffff;
     }
-""")
+    
+    /* Global Modern Scrollbars */
+    QScrollBar:vertical {
+        background: #f8fafc;
+        width: 10px;
+        border-radius: 5px;
+        margin: 0px;
+    }
+    
+    QScrollBar::handle:vertical {
+        background: #7ea4a6;
+        min-height: 20px;
+        border-radius: 5px;
+        border: none;
+    }
+    
+    QScrollBar::handle:vertical:hover {
+        background: #6b9395;
+    }
+    
+    QScrollBar::handle:vertical:pressed {
+        background: #5a8284;
+    }
+    
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+        border: none;
+        background: none;
+        height: 0px;
+    }
+    
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+        background: none;
+    }
+    
+    QScrollBar:horizontal {
+        background: #f8fafc;
+        height: 10px;
+        border-radius: 5px;
+        margin: 0px;
+    }
+    
+    QScrollBar::handle:horizontal {
+        background: #7ea4a6;
+        min-width: 20px;
+        border-radius: 5px;
+        border: none;
+    }
+    
+    QScrollBar::handle:horizontal:hover {
+        background: #6b9395;
+    }
+    
+    QScrollBar::handle:horizontal:pressed {
+        background: #5a8284;
+    }
+    
+    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+        border: none;
+        background: none;
+        width: 0px;
+    }
+    
+    QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+        background: none;
+    }
+    """)
 
 def show_message_box(title, text, icon_type=QMessageBox.Information):
     """Custom message box function to ensure proper text styling"""
@@ -205,60 +270,6 @@ class CreateProjectWidget(QWidget):
             QScrollArea {
                 border: none;
                 background-color: transparent;
-            }
-            QScrollBar:vertical {
-                border: 1px solid #d1d5db;
-                background: #f9fafb;
-                width: 12px;
-                margin: 0px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:vertical {
-                background: #9ca3af;
-                min-height: 20px;
-                border-radius: 6px;
-                border: none;
-            }
-            QScrollBar::handle:vertical:hover {
-                background: #6b7280;
-            }
-            QScrollBar::handle:vertical:pressed {
-                background: #4b5563;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                border: none;
-                background: none;
-                height: 0px;
-            }
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
-                background: none;
-            }
-            QScrollBar:horizontal {
-                border: 1px solid #d1d5db;
-                background: #f9fafb;
-                height: 12px;
-                margin: 0px;
-                border-radius: 6px;
-            }
-            QScrollBar::handle:horizontal {
-                background: #9ca3af;
-                min-width: 20px;
-                border-radius: 6px;
-                border: none;
-            }
-            QScrollBar::handle:horizontal:hover {
-                background: #6b7280;
-            }
-            QScrollBar::handle:horizontal:pressed {
-                background: #4b5563;
-            }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-                border: none;
-                background: none;
-                width: 0px;
-            }
-            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
-                background: none;
             }
         """)
         
@@ -825,85 +836,220 @@ class CreateProjectWidget(QWidget):
             num_channels = {"DAQ4CH": 4, "DAQ8CH": 8, "DAQ10CH": 10}.get(channel_count, 4)
             table = QTableWidget(num_channels, 12)
             table.setHorizontalHeaderLabels(["S.No.", "Channel Name", "Channel Type", "Sensitivity", "Unit", "Subunit", "Correction Factor", "Gain", "Unit Type", "Angle", "Direction", "Shaft"])
+            
+            # Apply header background color
+            header = table.horizontalHeader()
+            header.setStyleSheet("""
+                QHeaderView::section {
+                    background: #7ea4a6;
+                    color: #ffffff;
+                    font-size: 13px;
+                    font-weight: 600;
+                    border: none;
+                    border-bottom: 2px solid #e2e8f0;
+                    padding: 12px 20px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                QHeaderView::section:hover {
+                    background: #7ea4a6;
+                }
+            """)
 
             table.setStyleSheet("""
-QTableWidget {
-    background-color: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    font-size: 15px;
-    gridline-color: #f1f5f9;
-    selection-background-color: #f1f5f9;
-    alternate-background-color: #fafafa;
-}
+            /* Modern Table Styling */
+            QTableWidget {
+                background-color: #ffffff;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+                font-size: 14px;
+                gridline-color: #f1f5f9;
+                selection-background-color: #f0f9ff;
+                selection-color: #0f172a;
+                alternate-background-color: #fafbfc;
+                outline: none;
+            }
 
-/* Table Cells */
-QTableWidget::item {
-    padding: 14px 20px;
-    border-bottom: 1px solid #f1f5f9;
-    color: #111827;
-    font-size: 15px;
-}
+            /* Table Cells */
+            QTableWidget::item {
+                border: none;
+                border-bottom: 1px solid #f1f5f9;
+                color: #1e293b;
+                font-size: 14px;
+                padding: 16px 20px;
+                background-color: transparent;
+            }
 
-/* Selected Row */
-QTableWidget::item:selected {
-    background-color: #eef2ff;
-    color: #111827;
-}
+            QTableWidget::item:selected {
+                background-color: #f0f9ff;
+                color: #0f172a;
+            }
 
-/* Header */
-QHeaderView::section {
-    background-color: #f9fafb;
-    color: #374151;
-    font-size: 14px;
-    font-weight: 600;
-    border: none;
-    border-bottom: 2px solid #e5e7eb;
-    padding: 16px 20px;
-}
+            QTableWidget::item:hover {
+                background-color: #f8fafc;
+            }
 
-/* LineEdit inside table */
-QTableWidget QLineEdit {
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 10px 12px;
-    font-size: 14px;
-    background-color: #ffffff;
-}
+            /* Modern Header */
+            QHeaderView::section {
+                background: #7ea4a6;
+                color: #ffffff;
+                font-size: 13px;
+                font-weight: 600;
+                border: none;
+                border-bottom: 2px solid #e2e8f0;
+                padding: 12px 20px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
 
-/* ComboBox */
-QComboBox {
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 8px 10px;
-    font-size: 14px;
-    background-color: #ffffff;
-}
+            QHeaderView::section:hover {
+                background: #7ea4a6;
+            }
 
-QComboBox:hover {
-    border-color: #9ca3af;
-}
-
-QComboBox:focus {
-    border: 1px solid #3b82f6;
-}
-
-/* Dropdown */
-QComboBox QAbstractItemView {
-    border: 1px solid #e5e7eb;
-    background: white;
-    padding: 6px;
-}
-
-QComboBox QAbstractItemView::item {
-    padding: 10px 14px;
-}
-
-QComboBox QAbstractItemView::item:selected {
-    background-color: #3b82f6;
-    color: white;
-}
-""")
+            /* Modern Input Fields */
+            QTableWidget QLineEdit {
+                background-color: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 10px 14px;
+                font-size: 14px;
+                color: #1e293b;
+            }
+            
+            QTableWidget QLineEdit:focus {
+                border-color: #3b82f6;
+                outline: none;
+            }
+            
+            QTableWidget QLineEdit:hover {
+                border-color: #cbd5e1;
+            }
+            
+            /* Modern ComboBox */
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 10px 12px;
+                font-size: 14px;
+                color: #1e293b;
+                min-width: 120px;
+                min-height: 36px;
+            }
+            
+            QComboBox:focus {
+                border-color: #3b82f6;
+                outline: none;
+            }
+            
+            QComboBox:hover {
+                border-color: #cbd5e1;
+            }
+            
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+            
+            QComboBox::down-arrow {
+                image: none;
+                width: 0;
+                height: 0;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid #64748b;
+            }
+            
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 4px;
+                selection-background-color: #f0f9ff;
+                selection-color: #0f172a;
+            }
+            
+            QComboBox QAbstractItemView::item {
+                padding: 8px 12px;
+                border-radius: 4px;
+                color: #1e293b;
+                font-size: 14px;
+            }
+            
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #3b82f6;
+                color: #ffffff;
+            }
+            
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #f1f5f9;
+            }
+            
+            /* Modern Scrollbars */
+            QScrollBar:vertical {
+                background: #f8fafc;
+                width: 10px;
+                border-radius: 5px;
+                margin: 0px;
+            }
+            
+            QScrollBar::handle:vertical {
+                background: #7ea4a6;
+                min-height: 20px;
+                border-radius: 5px;
+                border: none;
+            }
+            
+            QScrollBar::handle:vertical:hover {
+                background: #6b9395;
+            }
+            
+            QScrollBar::handle:vertical:pressed {
+                background: #5a8284;
+            }
+            
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+                height: 0px;
+            }
+            
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+            
+            QScrollBar:horizontal {
+                background: #f8fafc;
+                height: 10px;
+                border-radius: 5px;
+                margin: 0px;
+            }
+            
+            QScrollBar::handle:horizontal {
+                background: #7ea4a6;
+                min-width: 20px;
+                border-radius: 5px;
+                border: none;
+            }
+            
+            QScrollBar::handle:horizontal:hover {
+                background: #6b9395;
+            }
+            
+            QScrollBar::handle:horizontal:pressed {
+                background: #5a8284;
+            }
+            
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                border: none;
+                background: none;
+                width: 0px;
+            }
+            
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+                background: none;
+            }
+        """)
             table.horizontalHeader().setVisible(True)
             table.horizontalHeader().setStretchLastSection(True)
             table.horizontalHeader().setMinimumHeight(48)
@@ -911,26 +1057,26 @@ QComboBox QAbstractItemView::item:selected {
             table.verticalHeader().setVisible(False)
             table.setAlternatingRowColors(True)
             table.setEditTriggers(QTableWidget.AllEditTriggers)
-            table.verticalHeader().setDefaultSectionSize(50)
+            table.verticalHeader().setDefaultSectionSize(80)
             table.setMinimumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 40)
             table.setMaximumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 40)
-            table.setMinimumWidth(1200)
+            table.setMinimumWidth(1400)
             table.resizeColumnsToContents()
             
-            # Set specific column widths for better layout
+            # Set specific column widths for better layout - increased for better usability
             header = table.horizontalHeader()
             header.resizeSection(0, 60)   # S.No.
-            header.resizeSection(1, 150)  # Channel Name
-            header.resizeSection(2, 120)  # Channel Type
-            header.resizeSection(3, 100)  # Sensitivity
-            header.resizeSection(4, 80)   # Unit
-            header.resizeSection(5, 80)   # Subunit
-            header.resizeSection(6, 120)  # Correction Factor
-            header.resizeSection(7, 80)   # Gain
-            header.resizeSection(8, 100)  # Unit Type
-            header.resizeSection(9, 80)   # Angle
-            header.resizeSection(10, 100) # Direction
-            header.resizeSection(11, 80)  # Shaft
+            header.resizeSection(1, 250)  # Channel Name - increased from 150
+            header.resizeSection(2, 160)  # Channel Type - increased from 120
+            header.resizeSection(3, 150)  # Sensitivity - increased from 100
+            header.resizeSection(4, 110)  # Unit - increased from 80
+            header.resizeSection(5, 110)  # Subunit - increased from 80
+            header.resizeSection(6, 160)  # Correction Factor - increased from 120
+            header.resizeSection(7, 110)  # Gain - increased from 80
+            header.resizeSection(8, 140)  # Unit Type - increased from 100
+            header.resizeSection(9, 100)  # Angle - increased from 80
+            header.resizeSection(10, 140) # Direction - increased from 100
+            header.resizeSection(11, 100)  # Shaft - increased from 80
 
             for row in range(num_channels):
                 item = QTableWidgetItem(str(row + 1))
@@ -1497,104 +1643,218 @@ QComboBox QAbstractItemView::item:selected {
     def create_channel_table(self, num_channels, existing_model=None):
         table = QTableWidget(num_channels, 12)
         table.setHorizontalHeaderLabels(["S.No.", "Channel Name", "Channel Type", "Sensitivity", "Unit", "Subunit", "Correction Factor", "Gain", "Unit Type", "Angle", "Direction", "Shaft"])
-        table.setStyleSheet("""
-            QTableWidget {
-                background-color: #ffffff;
-                border: 2px solid #e5e7eb;
-                border-radius: 10px;
-                font-size: 16px;
-                gridline-color: #e5e7eb;
-                selection-background-color: #edf2f7;
-                selection-color: #1a202c;
-                alternate-background-color: #f9fafb;
-                margin: 20px 0px;
-            }
-            QTableWidget::item {
-                border: none !important;
-                min-height: 60px !important;
-                color: #000000 !important;
-                padding:10px 25px;
-                font-size: 16px !important;
-                font-weight: 500 !important;
-                background-color: transparent !important;
-            }
-            QTableWidget::item:selected {
-                background-color: #edf2f7 !important;
-                color: #000000 !important;
-            }
-            QTableWidget QLineEdit {
-                color: #000000 !important;
-                background-color: #ffffff !important;
-                border: 2px solid #d1d5db !important;
-                padding: 15px !important;
-                font-size: 16px !important;
-                font-weight: 500 !important;
-                border-radius: 8px !important;
-            }
-            QHeaderView {
-                background-color: #374151;
-                color: white;
-                border: none;
-                padding:10px 5px;
-                border-bottom: 3px solid #e5e7eb;
-            }
+        
+        # Apply header background color
+        header = table.horizontalHeader()
+        header.setStyleSheet("""
             QHeaderView::section {
-                background-color: #374151;
-                color: white;
-                height: 40px;
-                font-weight: 500;
-                font-size: 16px;
+                background: #7ea4a6;
+                color: #ffffff;
+                font-size: 13px;
+                font-weight: 600;
                 border: none;
-                text-align: center;
-            }
-            QHeaderView::section:first {
-                border-top-left-radius: 8px;
-            }
-            QHeaderView::section:last {
-                border-top-right-radius: 8px;
-                border-right: none;
+                border-bottom: 2px solid #e2e8f0;
+                padding: 12px 20px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
             QHeaderView::section:hover {
-                background-color: #4b5563;
+                background: #7ea4a6;
             }
-            QHeaderView::section:pressed {
-                background-color: #6b7280;
-            }
-            QComboBox {
-                border: 2px solid #d1d5db;
-                border-radius: 8px;
-                padding: 12px 8px;
-                font-size: 15px;
-                font-weight: 500;
+        """)
+        
+        table.setStyleSheet("""
+            /* Modern Table Styling */
+            QTableWidget {
                 background-color: #ffffff;
-                color: #000000;
-                min-width: 100px;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+                font-size: 14px;
+                gridline-color: #f1f5f9;
+                selection-background-color: #f0f9ff;
+                selection-color: #0f172a;
+                alternate-background-color: #fafbfc;
+                outline: none;
             }
+            
+            /* Table Cells */
+            QTableWidget::item {
+                border: none;
+                border-bottom: 1px solid #f1f5f9;
+                color: #1e293b;
+                font-size: 14px;
+                padding: 16px 20px;
+                background-color: transparent;
+            }
+            
+            QTableWidget::item:selected {
+                background-color: #f0f9ff;
+                color: #0f172a;
+            }
+            
+            QTableWidget::item:hover {
+                background-color: #f8fafc;
+            }
+            
+            /* Modern Header */
+            QHeaderView::section {
+                background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%);
+                color: #ffffff;
+                font-size: 13px;
+                font-weight: 600;
+                border: none;
+                border-bottom: 2px solid #e2e8f0;
+                padding: 12px 20px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            QHeaderView::section:hover {
+                background: linear-gradient(135deg, #0c4a6e 0%, #164e63 100%);
+            }
+            
+            /* Modern Input Fields */
+            QTableWidget QLineEdit {
+                background-color: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 10px 14px;
+                font-size: 14px;
+                color: #1e293b;
+            }
+            
+            QTableWidget QLineEdit:focus {
+                border-color: #3b82f6;
+                outline: none;
+            }
+            
+            QTableWidget QLineEdit:hover {
+                border-color: #cbd5e1;
+            }
+            
+            /* Modern ComboBox */
+            QComboBox {
+                background-color: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 10px 12px;
+                font-size: 14px;
+                color: #1e293b;
+                min-width: 120px;
+                min-height: 36px;
+            }
+            
             QComboBox:focus {
                 border-color: #3b82f6;
+                outline: none;
             }
+            
+            QComboBox:hover {
+                border-color: #cbd5e1;
+            }
+            
+            QComboBox::drop-down {
+                border: none;
+                width: 30px;
+            }
+            
+            QComboBox::down-arrow {
+                image: none;
+                width: 0;
+                height: 0;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid #64748b;
+            }
+            
             QComboBox QAbstractItemView {
-                border: 2px solid #d1d5db;
                 background-color: #ffffff;
-                color: #000000;
-                selection-background-color: #3b82f6;
-                selection-color: #ffffff;
-                padding: 10px;
+                border: 1px solid #e2e8f0;
                 border-radius: 6px;
-                font-size: 15px;
-                font-weight: 500;
+                padding: 4px;
+                selection-background-color: #f0f9ff;
+                selection-color: #0f172a;
             }
+            
             QComboBox QAbstractItemView::item {
-                padding: 12px 15px;
-                min-height: 30px;
-                color: #000000;
-                font-size: 15px;
-                font-weight: 500;
+                padding: 8px 12px;
                 border-radius: 4px;
+                color: #1e293b;
+                font-size: 14px;
             }
+            
             QComboBox QAbstractItemView::item:selected {
                 background-color: #3b82f6;
                 color: #ffffff;
+            }
+            
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #f1f5f9;
+            }
+            
+            /* Modern Scrollbars */
+            QScrollBar:vertical {
+                background: #f8fafc;
+                width: 10px;
+                border-radius: 5px;
+                margin: 0px;
+            }
+            
+            QScrollBar::handle:vertical {
+                background: #7ea4a6;
+                min-height: 20px;
+                border-radius: 5px;
+                border: none;
+            }
+            
+            QScrollBar::handle:vertical:hover {
+                background: #6b9395;
+            }
+            
+            QScrollBar::handle:vertical:pressed {
+                background: #5a8284;
+            }
+            
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+                height: 0px;
+            }
+            
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+            
+            QScrollBar:horizontal {
+                background: #f8fafc;
+                height: 10px;
+                border-radius: 5px;
+                margin: 0px;
+            }
+            
+            QScrollBar::handle:horizontal {
+                background: #7ea4a6;
+                min-width: 20px;
+                border-radius: 5px;
+                border: none;
+            }
+            
+            QScrollBar::handle:horizontal:hover {
+                background: #6b9395;
+            }
+            
+            QScrollBar::handle:horizontal:pressed {
+                background: #5a8284;
+            }
+            
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                border: none;
+                background: none;
+                width: 0px;
+            }
+            
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+                background: none;
             }
         """)
         table.horizontalHeader().setVisible(True)
@@ -1607,25 +1867,25 @@ QComboBox QAbstractItemView::item:selected {
         table.setEditTriggers(QTableWidget.AllEditTriggers)
         table.setSelectionBehavior(QTableWidget.SelectRows)
         table.setSelectionMode(QTableWidget.SingleSelection)
-        table.verticalHeader().setDefaultSectionSize(56)
+        table.verticalHeader().setDefaultSectionSize(80)
         table.setMinimumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 50)
         table.setMaximumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 50)
-        table.setMinimumWidth(1000)
+        table.setMinimumWidth(1400)
         
-        # Set specific column widths
+        # Set specific column widths - increased for better usability
         header = table.horizontalHeader()
         header.resizeSection(0, 70)   # S.No.
-        header.resizeSection(1, 180)  # Channel Name
-        header.resizeSection(2, 140)  # Channel Type
-        header.resizeSection(3, 120)  # Sensitivity
-        header.resizeSection(4, 90)   # Unit
-        header.resizeSection(5, 90)   # Subunit
-        header.resizeSection(6, 140)  # Correction Factor
-        header.resizeSection(7, 90)   # Gain
-        header.resizeSection(8, 120)  # Unit Type
-        header.resizeSection(9, 80)   # Angle
-        header.resizeSection(10, 120) # Direction
-        header.resizeSection(11, 80)  # Shaft
+        header.resizeSection(1, 250)  # Channel Name - increased from 180
+        header.resizeSection(2, 160)  # Channel Type - increased from 140
+        header.resizeSection(3, 150)  # Sensitivity - increased from 120
+        header.resizeSection(4, 110)  # Unit - increased from 90
+        header.resizeSection(5, 110)  # Subunit - increased from 90
+        header.resizeSection(6, 160)  # Correction Factor - increased from 140
+        header.resizeSection(7, 110)  # Gain - increased from 90
+        header.resizeSection(8, 140)  # Unit Type - increased from 120
+        header.resizeSection(9, 100)  # Angle - increased from 80
+        header.resizeSection(10, 140) # Direction - increased from 120
+        header.resizeSection(11, 100)  # Shaft - increased from 80
         
         # Populate table with existing data or defaults
         if existing_model and existing_model.get("channels"):
@@ -1933,5 +2193,10 @@ QComboBox QAbstractItemView::item:selected {
             msg.exec_()
 
     def back_to_select(self):
-        logging.debug("Returning to project selection UI")
-        self.parent.display_select_project()    
+        logging.debug("Returning to previous UI")
+        if self.edit_mode and self.existing_project_name:
+            # If in edit mode, return to the dashboard with the project loaded
+            self.parent.load_project(self.existing_project_name)
+        else:
+            # If in create mode, return to project selection
+            self.parent.display_select_project()    

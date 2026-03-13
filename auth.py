@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtGui import QPixmap, QColor, QIcon
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QLineEdit,
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
                              QPushButton, QMessageBox, QFormLayout, QApplication,
                              QGraphicsDropShadowEffect)
 from PyQt5.QtCore import Qt
@@ -18,6 +18,7 @@ class AuthWindow(QWidget):
         self.db = None
         self.user_collection = None
         self.is_login_mode = True
+        self.forgot_password_card = None
         self.initDB()
         self.initUI()
         self.setWindowState(Qt.WindowMaximized)
@@ -131,7 +132,8 @@ class AuthWindow(QWidget):
 
         # Forgot password link (only for login)
         self.forgot_link = QLabel('<a href="#" style="color: #0099ff; text-decoration: none; font-size: 14px;">Forgot Password?</a>')
-        self.forgot_link.setOpenExternalLinks(True)
+        self.forgot_link.setOpenExternalLinks(False)
+        self.forgot_link.linkActivated.connect(self.show_forgot_password_card)
         self.form_fields.addRow("", self.forgot_link)
 
         # Action button
@@ -333,6 +335,217 @@ class AuthWindow(QWidget):
         if self.client:
             self.client.close()
         event.accept()
+
+    def show_forgot_password_card(self):
+        self.create_forgot_password_card()
+        self.form_container.hide()  # Hide the sign-in card
+        self.forgot_password_card.show()
+
+    def create_forgot_password_card(self):
+        if self.forgot_password_card:
+            return
+            
+        self.forgot_password_card = QWidget(self)
+        self.forgot_password_card.setFixedSize(500, 400)
+        self.forgot_password_card.setWindowTitle('Reset Password')
+        
+        # Center the card on the main window
+        parent_rect = self.geometry()
+        card_width = 500
+        card_height = 400
+        x = parent_rect.center().x() - card_width // 2
+        y = parent_rect.center().y() - card_height // 2
+        self.forgot_password_card.move(x, y)
+        
+        layout = QVBoxLayout()
+        layout.setSpacing(15)
+        
+        # Title
+        title = QLabel('Reset Password')
+        title.setStyleSheet("font-size: 20px; font-weight: bold; color: rgb(16, 137, 211);")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        # Form layout
+        form_layout = QFormLayout()
+        form_layout.setSpacing(10)
+        form_layout.setLabelAlignment(Qt.AlignLeft)
+        form_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
+        
+        # Email input
+        email_label = QLabel('Email')
+        email_label.setStyleSheet("font-size: 16px; color: #333; font-weight: bold;")
+        self.reset_email_input = self.create_input_field('Enter your email')
+        self.reset_email_input.setStyleSheet("""
+            QLineEdit {
+                background: white;
+                border: none;
+                padding: 12px 20px;
+                border-radius: 20px;
+                border: 2px solid transparent;
+                color: #333;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QLineEdit:focus {
+                border: 2px solid #12B1D1;
+            }
+        """)
+        form_layout.addRow(email_label, self.reset_email_input)
+        
+        # New password input
+        new_password_label = QLabel('New Password')
+        new_password_label.setStyleSheet("font-size: 16px; color: #333; font-weight: bold;")
+        self.reset_new_password_input = self.create_input_field('Enter new password')
+        self.reset_new_password_input.setEchoMode(QLineEdit.Password)
+        self.reset_new_password_input.setStyleSheet("""
+            QLineEdit {
+                background: white;
+                border: none;
+                padding: 12px 20px;
+                border-radius: 20px;
+                border: 2px solid transparent;
+                color: #333;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QLineEdit:focus {
+                border: 2px solid #12B1D1;
+            }
+        """)
+        form_layout.addRow(new_password_label, self.reset_new_password_input)
+        
+        # Confirm password input
+        confirm_password_label = QLabel('Confirm Password')
+        confirm_password_label.setStyleSheet("font-size: 16px; color: #333; font-weight: bold;")
+        self.reset_confirm_password_input = self.create_input_field('Confirm new password')
+        self.reset_confirm_password_input.setEchoMode(QLineEdit.Password)
+        self.reset_confirm_password_input.setStyleSheet("""
+            QLineEdit {
+                background: white;
+                border: none;
+                padding: 12px 20px;
+                border-radius: 20px;
+                border: 2px solid transparent;
+                color: #333;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QLineEdit:focus {
+                border: 2px solid #12B1D1;
+            }
+        """)
+        form_layout.addRow(confirm_password_label, self.reset_confirm_password_input)
+        
+        layout.addLayout(form_layout)
+        
+        # Buttons
+        button_layout = QHBoxLayout()
+        
+        update_button = QPushButton('Update Password')
+        update_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgb(16, 137, 211), stop:1 rgb(18, 177, 209));
+                color: white;
+                border-radius: 15px;
+                padding: 10px;
+                font-weight: bold;
+                border: none;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgb(14, 123, 190), stop:1 rgb(16, 159, 188));
+            }
+        """)
+        update_button.clicked.connect(self.update_password)
+        
+        cancel_button = QPushButton('Cancel')
+        cancel_button.setStyleSheet("""
+            QPushButton {
+                background: #6c757d;
+                color: white;
+                border-radius: 15px;
+                padding: 10px;
+                font-weight: bold;
+                border: none;
+            }
+            QPushButton:hover {
+                background: #5a6268;
+            }
+        """)
+        cancel_button.clicked.connect(self.close_forgot_password_card)
+        
+        button_layout.addWidget(update_button)
+        button_layout.addWidget(cancel_button)
+        layout.addLayout(button_layout)
+        
+        # Style the card
+        self.forgot_password_card.setStyleSheet("""
+            QWidget {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #FFFFFF, stop:1 #F4F7FB);
+                border-radius: 20px;
+                border: 3px solid white;
+                padding: 20px;
+            }
+        """)
+        
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setOffset(0, 5)
+        shadow.setBlurRadius(20)
+        shadow.setColor(QColor(0, 0, 0, 60))
+        self.forgot_password_card.setGraphicsEffect(shadow)
+        
+        self.forgot_password_card.setLayout(layout)
+
+    def close_forgot_password_card(self):
+        self.forgot_password_card.hide()
+        self.form_container.show()  # Show the sign-in card again
+
+    def update_password(self):
+        email = self.reset_email_input.text().strip()
+        new_password = self.reset_new_password_input.text().strip()
+        confirm_password = self.reset_confirm_password_input.text().strip()
+        
+        # Validation
+        if not email or not new_password or not confirm_password:
+            QMessageBox.warning(self.forgot_password_card, "Input Error", "Please fill in all fields.")
+            return
+            
+        if new_password != confirm_password:
+            QMessageBox.warning(self.forgot_password_card, "Input Error", "Passwords do not match.")
+            return
+            
+        if len(new_password) < 6:
+            QMessageBox.warning(self.forgot_password_card, "Input Error", "Password must be at least 6 characters long.")
+            return
+        
+        # Check if user exists
+        user = self.user_collection.find_one({"email": email})
+        if not user:
+            QMessageBox.warning(self.forgot_password_card, "Error", "No account found with this email address.")
+            return
+        
+        # Update password in database
+        try:
+            hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
+            self.user_collection.update_one(
+                {"email": email},
+                {"$set": {"password": hashed_password}}
+            )
+            
+            QMessageBox.information(self.forgot_password_card, "Success", "Password updated successfully!")
+            self.close_forgot_password_card()
+            
+            # Clear the card fields for next use
+            self.reset_email_input.clear()
+            self.reset_new_password_input.clear()
+            self.reset_confirm_password_input.clear()
+            
+        except Exception as e:
+            print(f"Error updating password: {e}")
+            QMessageBox.critical(self.forgot_password_card, "Database Error", "Failed to update password. Please try again.")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
