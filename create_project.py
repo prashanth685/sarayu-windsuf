@@ -691,7 +691,6 @@ class CreateProjectWidget(QWidget):
         project_card.setMaximumHeight(160)
         
         card_layout = QHBoxLayout(project_card)
-        card_layout.setContentsMargins(30, 25, 30, 25)
         card_layout.setSpacing(40)
         
         # Project Name Section
@@ -1195,7 +1194,7 @@ class CreateProjectWidget(QWidget):
         header_layout.setContentsMargins(0, 0, 0, 10)
         
         # Collapse/Expand button
-        collapse_button = QPushButton("▼")
+        collapse_button = QPushButton("▶")
         collapse_button.setStyleSheet("""
             QPushButton {
                 background-color: #6b7280;
@@ -1323,6 +1322,9 @@ class CreateProjectWidget(QWidget):
         content_layout.addWidget(model_tabs)
         model_main_layout.addWidget(content_widget)
         
+        # Initially hide the content widget (collapsed state)
+        content_widget.hide()
+        
         # Connect collapse functionality
         collapse_button.toggled.connect(lambda checked: self.toggle_model_content(content_widget, collapse_button))
         remove_button.clicked.connect(lambda: self.remove_model_input(model_card))
@@ -1340,7 +1342,7 @@ class CreateProjectWidget(QWidget):
         """Initialize the General tab for a specific model"""
         layout = QVBoxLayout(tab_widget)
         layout.setAlignment(Qt.AlignTop)
-        layout.setContentsMargins(5, 5, 5, 5)
+        # layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(5)
         
         # Create channel table directly without title
@@ -1448,34 +1450,6 @@ class CreateProjectWidget(QWidget):
         form_layout.setLabelAlignment(Qt.AlignLeft)
         form_layout.setFormAlignment(Qt.AlignLeft | Qt.AlignTop)
         
-        # Model Name Input
-        model_name_input = QLineEdit()
-        model_name_input.setPlaceholderText("Enter model name")
-        if existing_model:
-            model_name = existing_model.get("name", "")
-            if model_name.startswith("DAQ4CH_") or model_name.startswith("DAQ8CH_") or model_name.startswith("DAQ10CH_"):
-                # Remove channel prefix
-                for prefix in ["DAQ4CH_", "DAQ8CH_", "DAQ10CH_"]:
-                    if model_name.startswith(prefix):
-                        model_name = model_name[len(prefix):]
-                        break
-            model_name_input.setText(model_name)
-        model_name_input.setStyleSheet("""
-            QLineEdit {
-                border: 1px solid #d1d5db;
-                border-radius: 8px;
-                padding: 12px;
-                font-size: 14px;
-                background-color: #ffffff;
-                min-width: 300px;
-            }
-            QLineEdit:focus {
-                border-color: #3b82f6;
-                outline: none;
-            }
-        """)
-        form_layout.addRow("Model Name:", model_name_input)
-        
         # Tag Name Input
         tag_name_input = QLineEdit()
         tag_name_input.setPlaceholderText("Enter tag name")
@@ -1515,47 +1489,20 @@ class CreateProjectWidget(QWidget):
         """)
         form_layout.addRow("IP Address:", ip_address)
         
-        # Send Button
-        send_btn = QPushButton("Send Sensitivity Values")
-        send_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #3b82f6;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 12px 20px;
-                font-weight: 500;
-                min-width: 180px;
-                font-size: 14px;
-            }
-            QPushButton:hover {
-                background-color: #2563eb;
-            }
-            QPushButton:disabled {
-                background-color: #9ca3af;
-            }
-        """)
-        send_btn.clicked.connect(lambda: self.send_sensitivity_values_for_model(len(self.model_inputs), ip_address, tag_name_input))
-        form_layout.addRow("", send_btn)
-        
         layout.addLayout(form_layout)
         layout.addStretch()
         
         # Store I/O settings for this model
         if hasattr(self, 'model_io_settings'):
             self.model_io_settings[len(self.model_inputs)] = {
-                'model_name': model_name_input,
                 'tag_name': tag_name_input,
-                'ip_address': ip_address,
-                'send_btn': send_btn
+                'ip_address': ip_address
             }
         else:
             self.model_io_settings = {
                 len(self.model_inputs): {
-                    'model_name': model_name_input,
                     'tag_name': tag_name_input,
-                    'ip_address': ip_address,
-                    'send_btn': send_btn
+                    'ip_address': ip_address
                 }
             }
     
@@ -1907,7 +1854,7 @@ class CreateProjectWidget(QWidget):
         table.setItem(row, 0, item)
         
         # Channel Name
-        table.setItem(row, 1, QTableWidgetItem(channel_data.get("channelName", "") if channel_data else ""))
+        table.setItem(row, 1, QTableWidgetItem(channel_data.get("channelName", f"CH{row + 1}") if channel_data else f"CH{row + 1}"))
         
         # Channel Type
         type_combo = QComboBox()
@@ -1918,14 +1865,14 @@ class CreateProjectWidget(QWidget):
         table.setCellWidget(row, 2, type_combo)
         
         # Sensitivity
-        table.setItem(row, 3, QTableWidgetItem(channel_data.get("sensitivity", "") if channel_data else ""))
+        table.setItem(row, 3, QTableWidgetItem(channel_data.get("sensitivity", "0.007874") if channel_data else "0.007874"))
         
         # Unit
         unit_combo = QComboBox()
         current_type = type_combo.currentText()
         unit_items = self.available_units_displacement if current_type == "Displacement" else self.available_units_accvel
         unit_combo.addItems(unit_items)
-        unit_combo.setCurrentText(channel_data.get("unit", unit_items[0]) if channel_data else unit_items[0])
+        unit_combo.setCurrentText(channel_data.get("unit", "um") if channel_data else "um")
         unit_combo.setStyleSheet(self.get_combo_box_style())
         unit_combo.currentTextChanged.connect(lambda text, r=row: self.update_unit_type_based_on_unit(table, r))
         table.setCellWidget(row, 4, unit_combo)
@@ -1942,10 +1889,10 @@ class CreateProjectWidget(QWidget):
         table.setCellWidget(row, 5, subunit_combo)
         
         # Correction Factor
-        table.setItem(row, 6, QTableWidgetItem(channel_data.get("correctionValue", "") if channel_data else ""))
+        table.setItem(row, 6, QTableWidgetItem(channel_data.get("correctionValue", "1") if channel_data else "1"))
         
         # Gain
-        table.setItem(row, 7, QTableWidgetItem(channel_data.get("gain", "") if channel_data else ""))
+        table.setItem(row, 7, QTableWidgetItem(channel_data.get("gain", "1") if channel_data else "1"))
         
         # Unit Type
         unit_type_combo = QComboBox()
@@ -1960,17 +1907,19 @@ class CreateProjectWidget(QWidget):
         table.setCellWidget(row, 8, unit_type_combo)
         
         # Angle
-        table.setItem(row, 9, QTableWidgetItem(channel_data.get("angle", "") if channel_data else ""))
+        table.setItem(row, 9, QTableWidgetItem(channel_data.get("angle", "45") if channel_data else "45"))
         
         # Direction
         direction_combo = QComboBox()
         direction_combo.addItems(self.available_directions)
-        direction_combo.setCurrentText(channel_data.get("angleDirection", "Right") if channel_data else "Right")
+        # Direction - alternate between Right and Left
+        default_direction = "Right" if row % 2 == 0 else "Left"
+        direction_combo.setCurrentText(channel_data.get("angleDirection", default_direction) if channel_data else default_direction)
         direction_combo.setStyleSheet(self.get_combo_box_style())
         table.setCellWidget(row, 10, direction_combo)
         
         # Shaft
-        table.setItem(row, 11, QTableWidgetItem(channel_data.get("shaft", "") if channel_data else ""))
+        table.setItem(row, 11, QTableWidgetItem(channel_data.get("shaft", "CCW") if channel_data else "CCW"))
     
     def toggle_model_content(self, content_widget, collapse_button):
         """Toggle visibility of model content and update button text"""
@@ -2003,7 +1952,7 @@ class CreateProjectWidget(QWidget):
         item = QTableWidgetItem(str(current_rows + 1))
         item.setTextAlignment(Qt.AlignCenter)
         table.setItem(current_rows, 0, item)
-        table.setItem(current_rows, 1, QTableWidgetItem(""))
+        table.setItem(current_rows, 1, QTableWidgetItem(f"CH{current_rows + 1}"))
         
         type_combo = QComboBox()
         type_combo.addItems(self.available_types)
@@ -2012,11 +1961,11 @@ class CreateProjectWidget(QWidget):
         type_combo.currentIndexChanged.connect(lambda _, r=current_rows: self.update_unit_combo(table, r))
         table.setCellWidget(current_rows, 2, type_combo)
         
-        table.setItem(current_rows, 3, QTableWidgetItem(""))
+        table.setItem(current_rows, 3, QTableWidgetItem("0.007874"))
         
         unit_combo = QComboBox()
         unit_combo.addItems(self.available_units_displacement)
-        unit_combo.setCurrentText("mil")
+        unit_combo.setCurrentText("um")
         unit_combo.setStyleSheet(self.get_combo_box_style())
         unit_combo.currentTextChanged.connect(lambda text, r=current_rows: self.update_unit_type_based_on_unit(table, r))
         table.setCellWidget(current_rows, 4, unit_combo)
@@ -2027,22 +1976,24 @@ class CreateProjectWidget(QWidget):
         subunit_combo.setStyleSheet(self.get_combo_box_style())
         table.setCellWidget(current_rows, 5, subunit_combo)
         
-        table.setItem(current_rows, 6, QTableWidgetItem(""))
-        table.setItem(current_rows, 7, QTableWidgetItem(""))
+        table.setItem(current_rows, 6, QTableWidgetItem("1"))
+        table.setItem(current_rows, 7, QTableWidgetItem("1"))
         unit_type_combo = QComboBox()
         unit_type_combo.addItems(self.available_unit_types)
         unit_type_combo.setCurrentText("Displacement")
         unit_type_combo.setStyleSheet(self.get_combo_box_style())
         table.setCellWidget(current_rows, 8, unit_type_combo)
-        table.setItem(current_rows, 9, QTableWidgetItem(""))
+        table.setItem(current_rows, 9, QTableWidgetItem("45"))
         
         direction_combo = QComboBox()
         direction_combo.addItems(self.available_directions)
-        direction_combo.setCurrentText("Right")
+        # Direction - alternate between Right and Left
+        default_direction = "Right" if current_rows % 2 == 0 else "Left"
+        direction_combo.setCurrentText(default_direction)
         direction_combo.setStyleSheet(self.get_combo_box_style())
         table.setCellWidget(current_rows, 10, direction_combo)
         
-        table.setItem(current_rows, 11, QTableWidgetItem(""))
+        table.setItem(current_rows, 11, QTableWidgetItem("CCW"))
         table.setMinimumHeight(table.verticalHeader().defaultSectionSize() * (current_rows + 1) + table.horizontalHeader().height() + 40)
         table.setMaximumHeight(table.verticalHeader().defaultSectionSize() * (current_rows + 1) + table.horizontalHeader().height() + 40)
         table.resizeColumnsToContents()
@@ -2101,8 +2052,6 @@ class CreateProjectWidget(QWidget):
             # Try to get values from I/O tab
             if hasattr(self, 'model_io_settings') and i in self.model_io_settings:
                 io_settings = self.model_io_settings[i]
-                if 'model_name' in io_settings:
-                    model_name = io_settings['model_name'].text().strip()
                 if 'tag_name' in io_settings:
                     tag_name = io_settings['tag_name'].text().strip()
             

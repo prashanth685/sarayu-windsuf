@@ -81,6 +81,8 @@ class ExistingProjectWidget(QWidget):
 
         # Project structure view
         self.structure_widget = ProjectStructureWidget(self)
+        # Hide the tree view tab to prevent users from accessing it
+        self.structure_widget.tab_widget.removeTab(0)  # Remove the "Tree View" tab
         card_layout.addWidget(self.structure_widget)
 
         # Buttons

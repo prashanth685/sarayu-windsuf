@@ -423,6 +423,7 @@ class DashboardWindow(QWidget):
     def display_dashboard_with_select_project(self):
         self.clear_content_layout()
         self.tree_view.setVisible(False)
+        self.tree_container.setVisible(False)  # Hide the entire left sidebar
         self.sub_tool_bar.setVisible(False)
         self.current_project = None
         self.channel_count = None
@@ -434,11 +435,13 @@ class DashboardWindow(QWidget):
         self.current_session_frame_selections = {}  # Clear current session selections
         self.select_project_widget = SelectProjectWidget(self)
         self.main_section.set_widget(self.select_project_widget)
+        self.main_splitter.setSizes([0, 1200])  # Give full width to main content
         logging.debug("Displayed dashboard with SelectProjectWidget in MainSection")
 
     def display_select_project(self):
         self.clear_content_layout()
         self.tree_view.setVisible(False)
+        self.tree_container.setVisible(False)  # Hide entire left sidebar
         self.sub_tool_bar.setVisible(False)
         self.current_project = None
         self.channel_count = None
@@ -450,6 +453,7 @@ class DashboardWindow(QWidget):
         self.current_session_frame_selections = {}  # Clear current session selections
         self.select_project_widget = SelectProjectWidget(self)
         self.main_section.set_widget(self.select_project_widget)
+        self.main_splitter.setSizes([0, 1200])  # Give full width to main content
         logging.debug("Displayed SelectProjectWidget in MainSection")
 
     def open_project(self):
@@ -458,9 +462,11 @@ class DashboardWindow(QWidget):
 
     def display_create_project(self):
         self.clear_content_layout()
+        self.tree_container.setVisible(False)  # Hide entire left sidebar
         self.sub_tool_bar.setVisible(False)
         self.create_project_widget = CreateProjectWidget(self)
         self.main_section.set_widget(self.create_project_widget)
+        self.main_splitter.setSizes([0, 1200])  # Give full width to main content
         logging.debug("Displayed CreateProjectWidget in MainSection")
 
     def edit_project_dialog(self):
@@ -471,6 +477,7 @@ class DashboardWindow(QWidget):
 
         self.clear_content_layout()
         self.tree_view.setVisible(False)
+        self.tree_container.setVisible(False)  # Hide entire left sidebar
         self.sub_tool_bar.setVisible(False)
 
         project_data = self.db.get_project_data(self.current_project)
@@ -668,11 +675,14 @@ class DashboardWindow(QWidget):
     def display_project_structure(self):
         self.clear_content_layout()
         self.tree_view.setVisible(False)
+        self.tree_container.setVisible(False)  # Hide entire left sidebar
         self.sub_tool_bar.setVisible(False)
         self.project_structure_widget = ProjectStructureWidget(self)
         self.project_structure_widget.project_selected.connect(self.load_project)
+        # Show tree view tab when called from select_project.py for project structure display
+        # Don't remove the tab - let users see project structure
         self.main_section.set_widget(self.project_structure_widget)
-        self.main_splitter.setSizes([0, 1200])
+        self.main_splitter.setSizes([0, 1200])  # Give full width to main content
         logging.debug("Displayed ProjectStructureWidget in MainSection")
 
     def load_project(self, project_name):
@@ -724,6 +734,7 @@ class DashboardWindow(QWidget):
 
         self.setWindowTitle(f'Sarayu Desktop Application - {self.current_project.upper()}')
         self.tree_view.setVisible(True)
+        self.tree_container.setVisible(True)  # Show the left sidebar when project is loaded
         self.sub_tool_bar.setVisible(True)
 
         window_width = self.width() if self.width() > 0 else 1200

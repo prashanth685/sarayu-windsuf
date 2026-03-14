@@ -329,7 +329,7 @@ class FFTViewFeature:
         self.magnitude_plot_widget.setLabel('left', 'Amplitude', color='#000000')
         self.magnitude_plot_widget.setLabel('bottom', 'Frequency (Hz)', color='#000000')
         
-        # Enhanced grid with more lines
+        # Enhanced grid with both vertical and horizontal lines
         self.magnitude_plot_widget.showGrid(x=True, y=True, alpha=0.3)
         self.magnitude_plot_widget.getPlotItem().getViewBox().setMouseEnabled(x=True, y=True)
         
@@ -337,19 +337,9 @@ class FFTViewFeature:
         self.magnitude_plot_widget.setXRange(self.settings.start_frequency, self.settings.stop_frequency, padding=0.02)
         self.magnitude_plot_widget.enableAutoRange('y', True)
         
-        # Add more grid lines
-        x_axis = self.magnitude_plot_widget.getAxis('bottom')
-        x_axis.setGrid(80)  # More grid lines on x-axis
-        y_axis = self.magnitude_plot_widget.getAxis('left')
-        y_axis.setGrid(80)  # More grid lines on y-axis
+        # Grid lines are controlled by showGrid() above
         
-        # Set custom left axis with initial decimals (fallback 1)
-        try:
-            self.left_axis = LeftAxisItem(orientation='left', decimals=1)
-            self.magnitude_plot_widget.setAxisItems({'left': self.left_axis})
-        except Exception:
-            self.left_axis = None
-            
+                    
         # Improve axis readability similar to Time View
         try:
             tick_font = pg.Qt.QtGui.QFont()
@@ -386,7 +376,7 @@ class FFTViewFeature:
         self.phase_plot_widget.setLabel('left', 'Phase (degrees)', color='#000000')
         self.phase_plot_widget.setLabel('bottom', 'Frequency (Hz)', color='#000000')
         
-        # Enhanced grid with more lines
+        # Enhanced grid with both vertical and horizontal lines
         self.phase_plot_widget.showGrid(x=True, y=True, alpha=0.3)
         self.phase_plot_widget.getPlotItem().getViewBox().setMouseEnabled(x=True, y=True)
         
@@ -394,11 +384,7 @@ class FFTViewFeature:
         self.phase_plot_widget.setXRange(self.settings.start_frequency, self.settings.stop_frequency, padding=0.02)
         self.phase_plot_widget.enableAutoRange('y', True)
         
-        # Add more grid lines
-        x_axis = self.phase_plot_widget.getAxis('bottom')
-        x_axis.setGrid(80)  # More grid lines on x-axis
-        y_axis = self.phase_plot_widget.getAxis('left')
-        y_axis.setGrid(80)  # More grid lines on y-axis
+        # Grid lines are controlled by showGrid() above
         
         # Add vertical cursor line for phase plot
         self.phase_cursor = pg.InfiniteLine(angle=90, movable=False, pen=pg.mkPen(color='black', width=1, style=Qt.DashLine))
@@ -643,8 +629,7 @@ class FFTViewFeature:
     def _update_left_axis_decimals(self, unit: str, max_val: float):
         """Choose sensible decimals for the left axis based on unit and data magnitude."""
         try:
-            if self.left_axis is None:
-                return
+            # Use default axis since custom LeftAxisItem was removed
             u = (unit or '').lower()
             v = abs(float(max_val)) if max_val is not None else 0.0
             # Default decimals by unit (baseline similar to Time View)
@@ -673,14 +658,12 @@ class FFTViewFeature:
                     dec = max(dec, 5)
                 elif v < 1e-1:
                     dec = max(dec, 4)
-            # Apply and refresh axis
-            if self.left_axis.decimals != dec:
-                self.left_axis.decimals = dec
+            # Apply decimals to default axis if needed
+            if dec is not None:
                 try:
-                    self.left_axis.picture = None
-                    self.left_axis.update()
-                    self.magnitude_plot_widget.getPlotItem().update()
-                    self.magnitude_plot_widget.repaint()
+                    left_axis = self.magnitude_plot_widget.getAxis('left')
+                    # Note: Default axis doesn't support decimals property like custom LeftAxisItem
+                    # The formatting will be handled by the default axis behavior
                 except Exception:
                     pass
         except Exception:
@@ -825,25 +808,7 @@ class FFTViewFeature:
                 self._y_unit_label = unit
                 self.magnitude_plot_widget.setLabel('left', f'Amplitude ({unit})', color='#000000')
                 # Update tick decimals to mirror Time View behavior
-                new_dec = None
-                if unit == 'mm':
-                    new_dec = 3
-                elif unit == 'mil':
-                    new_dec = 3
-                elif unit == 'um':
-                    new_dec = 0
-                elif unit == 'v':
-                    new_dec = 3
-                if self.left_axis is not None:
-                    self.left_axis.decimals = new_dec
-                    try:
-                        # Force axis refresh
-                        self.left_axis.picture = None
-                        self.left_axis.update()
-                        self.magnitude_plot_widget.getPlotItem().update()
-                        self.magnitude_plot_widget.repaint()
-                    except Exception:
-                        pass
+                # Note: Default axis will handle formatting automatically
 
             if self.is_saving and self.current_filename:
                 self.save_data_to_database(tag_name, values, sample_rate, frame_index)
@@ -1058,24 +1023,7 @@ class FFTViewFeature:
                 self._y_unit_label = unit_sf
                 self.magnitude_plot_widget.setLabel('left', f'Amplitude ({unit_sf})', color='#000000')
                 # Update tick decimals based on unit
-                new_dec = None
-                if unit_sf == 'mm':
-                    new_dec = 3
-                elif unit_sf == 'mil':
-                    new_dec = 3
-                elif unit_sf == 'um':
-                    new_dec = 0
-                elif unit_sf == 'v':
-                    new_dec = 3
-                if self.left_axis is not None:
-                    self.left_axis.decimals = new_dec
-                    try:
-                        self.left_axis.picture = None
-                        self.left_axis.update()
-                        self.magnitude_plot_widget.getPlotItem().update()
-                        self.magnitude_plot_widget.repaint()
-                    except Exception:
-                        pass
+                # Note: Default axis will handle formatting automatically
 
             # Buffer and plot
             self.sample_rate = Fs

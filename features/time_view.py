@@ -260,7 +260,7 @@ class TimeViewFeature:
         # Add vertical spacing and outer margins between stacked plots for visual separation
         self.scroll_layout.setSpacing(24)
         self.scroll_layout.setContentsMargins(10, 10, 10, 14)
-        self.scroll_content.setStyleSheet("background-color: #ebeef2; border-radius: 5px; padding: 10px;")
+        self.scroll_content.setStyleSheet("background-color: #fff; border-radius: 5px; padding: 10px;")
         self.scroll_area.setWidget(self.scroll_content)
 
         # Content area: plots on the left, settings sidebar on the right
@@ -343,7 +343,7 @@ class TimeViewFeature:
         for i in range(self.num_plots):
             # Wrap each plot in its own container to create consistent visual gaps
             plot_container = QWidget()
-            plot_container.setStyleSheet("background-color: #ebeef2; border-radius: 6px;")
+            plot_container.setStyleSheet("background-color: #fff; border-radius: 6px;")
             container_layout = QVBoxLayout(plot_container)
             container_layout.setContentsMargins(6, 6, 6, 12)
             container_layout.setSpacing(4)
@@ -351,7 +351,7 @@ class TimeViewFeature:
             plot_widget = PlotWidget()
             # Increased plot height for better visibility
             plot_widget.setMinimumHeight(280)
-            plot_widget.setBackground('#ebeef2')
+            plot_widget.setBackground('#fff')
             plot_widget.showGrid(x=True, y=True)
             plot_widget.addLegend()
 
