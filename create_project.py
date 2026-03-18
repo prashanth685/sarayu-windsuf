@@ -641,11 +641,14 @@ class CreateProjectWidget(QWidget):
             QComboBox {
                 border: 1px solid #d1d5db;
                 border-radius: 4px;
-                padding: 6px;
+                padding: 4px 4px;
                 font-size: 14px;
                 background-color: #ffffff;
                 color: #000000;
-                min-height: 28px;
+                min-height: 24px;
+                max-height: 24px;
+                margin: 2px;
+                text-align: center;
             }
             QComboBox:focus {
                 border-color: #3b82f6;
@@ -660,12 +663,14 @@ class CreateProjectWidget(QWidget):
                 color: #000000;
                 selection-background-color: #3b82f6;
                 selection-color: #ffffff;
-                padding: 4px;
+                padding: 2px;
+                text-align: center;
             }
             QComboBox QAbstractItemView::item {
-                padding: 6px 8px;
-                min-height: 20px;
+                padding: 4px 8px;
+                min-height: 18px;
                 color: #000000;
+                text-align: center;
             }
             QComboBox QAbstractItemView::item:selected {
                 background-color: #3b82f6;
@@ -875,8 +880,9 @@ class CreateProjectWidget(QWidget):
                 border-bottom: 1px solid #f1f5f9;
                 color: #1e293b;
                 font-size: 14px;
-                padding: 16px 20px;
+                padding: 8px 4px;
                 background-color: transparent;
+                text-align: center;
             }
 
             QTableWidget::item:selected {
@@ -886,6 +892,11 @@ class CreateProjectWidget(QWidget):
 
             QTableWidget::item:hover {
                 background-color: #f8fafc;
+            }
+
+            /* Center align combo boxes in table cells */
+            QTableWidget QWidget {
+                text-align: center;
             }
 
             /* Modern Header */
@@ -925,38 +936,49 @@ class CreateProjectWidget(QWidget):
             }
             
             /* Modern ComboBox */
-            QComboBox {
+            QTableWidget QComboBox {
                 background-color: #ffffff;
                 border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                padding: 10px 12px;
+                border-radius: 4px;
                 font-size: 14px;
                 color: #1e293b;
-                min-width: 120px;
-                min-height: 36px;
+                min-width: 60px;
+                min-height: 20px;
+                max-height: 20px;
+                margin: 1px;
+                text-align: center;
             }
             
-            QComboBox:focus {
+            QTableWidget QComboBox:focus {
                 border-color: #3b82f6;
                 outline: none;
             }
             
-            QComboBox:hover {
+            QTableWidget QComboBox:hover {
                 border-color: #cbd5e1;
             }
             
-            QComboBox::drop-down {
+            QTableWidget QComboBox::drop-down {
                 border: none;
-                width: 30px;
+                width: 16px;
             }
             
-            QComboBox::down-arrow {
+            QTableWidget QComboBox::down-arrow {
                 image: none;
                 width: 0;
                 height: 0;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 6px solid #64748b;
+                border-left: 3px solid transparent;
+                border-right: 3px solid transparent;
+                border-top: 4px solid #64748b;
+            }
+            
+            QTableWidget QComboBox QAbstractItemView {
+                text-align: center;
+            }
+            
+            QTableWidget QComboBox QAbstractItemView::item {
+                text-align: center;
+                padding: 2px 4px;
             }
             
             QComboBox QAbstractItemView {
@@ -1680,38 +1702,41 @@ class CreateProjectWidget(QWidget):
             }
             
             /* Modern ComboBox */
-            QComboBox {
+            QTableWidget QComboBox {
                 background-color: #ffffff;
                 border: 1px solid #e2e8f0;
-                border-radius: 6px;
-                padding: 10px 12px;
+                border-radius: 4px;
+                padding: 2px 4px;
                 font-size: 14px;
                 color: #1e293b;
-                min-width: 120px;
-                min-height: 36px;
+                min-width: 70px;
+                min-height: 20px;
+                max-height: 20px;
+                margin: 1px;
+                text-align: center;
             }
             
-            QComboBox:focus {
+            QTableWidget QComboBox:focus {
                 border-color: #3b82f6;
                 outline: none;
             }
             
-            QComboBox:hover {
+            QTableWidget QComboBox:hover {
                 border-color: #cbd5e1;
             }
             
-            QComboBox::drop-down {
+            QTableWidget QComboBox::drop-down {
                 border: none;
-                width: 30px;
+                width: 16px;
             }
             
-            QComboBox::down-arrow {
+            QTableWidget QComboBox::down-arrow {
                 image: none;
                 width: 0;
                 height: 0;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 6px solid #64748b;
+                border-left: 3px solid transparent;
+                border-right: 3px solid transparent;
+                border-top: 4px solid #64748b;
             }
             
             QComboBox QAbstractItemView {
