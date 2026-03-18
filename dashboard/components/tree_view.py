@@ -69,7 +69,13 @@ class TreeView(QWidget):
                     continue
                 model_item = QTreeWidgetItem(project_item)
                 model_item.setExpanded(True)
-                model_item.setText(0, f"🖥️ {model_name}")
+                # Remove DAQ prefix from display name
+                display_name = model_name
+                if '_' in model_name:
+                    parts = model_name.split('_')
+                    if len(parts) >= 2 and parts[0].startswith('DAQ'):
+                        display_name = '_'.join(parts[1:])
+                model_item.setText(0, f"🖥️ {display_name}")
                 model_item.setData(0, Qt.UserRole, {
                     "type": "model",
                     "name": model_name,

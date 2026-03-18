@@ -34,6 +34,7 @@ class ProjectStructureWidget(QWidget):
         self.db = parent.db
         self.selected_project = None
         self.project_cache = {}
+        self.workers = []  # Track active workers
         self.initUI()
         QTimer.singleShot(0, self.load_projects)  # Load projects asynchronously
 
@@ -144,6 +145,8 @@ class ProjectStructureWidget(QWidget):
             return
         worker = DatabaseWorker(self.db, project_name)
         worker.data_fetched.connect(self.populate_tree_view)
+        worker.finished.connect(lambda: self.cleanup_worker(worker))
+        self.workers.append(worker)
         worker.start()
 
     def populate_tree_view(self, project_name, project_data):
@@ -234,6 +237,26 @@ class ProjectStructureWidget(QWidget):
                 self.project_selected.emit(self.selected_project)
         finally:
             self.open_button.setEnabled(True)
+
+    def cleanup_worker(self, worker):
+        """Remove finished worker from tracking list"""
+        if worker in self.workers:
+            self.workers.remove(worker)
+            worker.deleteLater()
+
+    def closeEvent(self, event):
+        """Clean up all workers when widget is closed"""
+        self.cleanup_all_workers()
+        super().closeEvent(event)
+
+    def cleanup_all_workers(self):
+        """Stop and clean up all active workers"""
+        for worker in self.workers[:]:  # Use slice to avoid modification during iteration
+            if worker.isRunning():
+                worker.quit()
+                worker.wait(1000)  # Wait up to 1 second for thread to finish
+            worker.deleteLater()
+        self.workers.clear()
 
     def back_to_select(self):
         logging.debug("Back button clicked, displaying select project")

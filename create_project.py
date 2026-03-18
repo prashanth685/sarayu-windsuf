@@ -1238,7 +1238,17 @@ class CreateProjectWidget(QWidget):
         
         # Model title (editable)
         model_title_input = QLineEdit()
-        model_title_input.setText(f"Model {len(self.model_inputs) + 1}")
+        # Set title from existing model or use default
+        if existing_model and existing_model.get("name"):
+            model_name = existing_model["name"]
+            # Remove DAQ prefix from display name
+            if '_' in model_name:
+                parts = model_name.split('_')
+                if len(parts) >= 2 and parts[0].startswith('DAQ'):
+                    model_name = '_'.join(parts[1:])
+            model_title_input.setText(model_name)
+        else:
+            model_title_input.setText(f"Model {len(self.model_inputs) + 1}")
         model_title_input.setStyleSheet("""
             QLineEdit {
                 font-size: 18px;
@@ -1315,7 +1325,8 @@ class CreateProjectWidget(QWidget):
                 margin-right: 2px;
                 font-size: 14px;
                 font-weight: 500;
-                width:100%
+                min-width: 520px;
+                width: 520px;
             }
             QTabBar::tab:selected {
                 background-color: white;

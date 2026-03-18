@@ -749,6 +749,7 @@ class DashboardWindow(QWidget):
 
         self.clear_content_layout()
         if self.project_structure_widget:
+            self.project_structure_widget.cleanup_all_workers()
             self.project_structure_widget.setParent(None)
             self.project_structure_widget = None
             logging.debug("ProjectStructureWidget removed from MainSection")

@@ -125,16 +125,19 @@ class Console(QWidget):
         try:
             self.console_message_area.setFixedHeight(0)
             self.console_message_area.hide()
-            layout = self.parent.console_layout
-            layout.removeWidget(self.button_container)
-            layout.removeWidget(self.console_message_area)
-            layout.removeWidget(self.parent.mqtt_status)
-            layout.addWidget(self.button_container)
-            layout.addWidget(self.console_message_area)
-            layout.addWidget(self.parent.mqtt_status)
+            # Check if console_layout exists before accessing it
+            if hasattr(self.parent, 'console_layout'):
+                layout = self.parent.console_layout
+                layout.removeWidget(self.button_container)
+                layout.removeWidget(self.console_message_area)
+                layout.removeWidget(self.parent.mqtt_status)
+                layout.addWidget(self.button_container)
+                layout.addWidget(self.console_message_area)
+                layout.addWidget(self.parent.mqtt_status)
             self.minimize_button.hide()
             self.maximize_button.show()
-            self.parent.console_container.setFixedHeight(80)
+            if hasattr(self.parent, 'console_container'):
+                self.parent.console_container.setFixedHeight(80)
             logging.info("Console minimized")
         except Exception as e:
             logging.error(f"Error minimizing console: {str(e)}")
@@ -143,16 +146,19 @@ class Console(QWidget):
         try:
             self.console_message_area.setFixedHeight(200)
             self.console_message_area.show()
-            layout = self.parent.console_layout
-            layout.removeWidget(self.button_container)
-            layout.removeWidget(self.console_message_area)
-            layout.removeWidget(self.parent.mqtt_status)
-            layout.addWidget(self.button_container)
-            layout.addWidget(self.console_message_area)
-            layout.addWidget(self.parent.mqtt_status)
+            # Check if console_layout exists before accessing it
+            if hasattr(self.parent, 'console_layout'):
+                layout = self.parent.console_layout
+                layout.removeWidget(self.button_container)
+                layout.removeWidget(self.console_message_area)
+                layout.removeWidget(self.parent.mqtt_status)
+                layout.addWidget(self.button_container)
+                layout.addWidget(self.console_message_area)
+                layout.addWidget(self.parent.mqtt_status)
             self.minimize_button.show()
             self.maximize_button.hide()
-            self.parent.console_container.setFixedHeight(200)
+            if hasattr(self.parent, 'console_container'):
+                self.parent.console_container.setFixedHeight(250)
             logging.info("Console maximized")
         except Exception as e:
             logging.error(f"Error maximizing console: {str(e)}")
