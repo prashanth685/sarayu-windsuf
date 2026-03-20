@@ -959,6 +959,25 @@ class FFTViewFeature:
     def refresh_channel_properties(self):
         self.initialize_async()
 
+    def update_selected_channel(self, channel_name):
+        """Update the FFT view when a new channel is selected"""
+        try:
+            self.channel = channel_name
+            self.channel_index = self.resolve_channel_index(channel_name) if channel_name is not None else None
+            self.latest_data = None
+            self.data_buffer.clear()
+            
+            # Reload channel properties and update plot
+            self.load_channel_properties()
+            self.update_plot()
+            
+            if self.console:
+                self.console.append_to_console(f"FFT: Updated to channel {channel_name}")
+        except Exception as e:
+            logging.error(f"Error updating selected channel in FFT view: {str(e)}")
+            if self.console:
+                self.console.append_to_console(f"FFT: Error updating channel - {str(e)}")
+
     # NEW: Load selected saved frame payload and plot FFT (first main channel by default if no explicit channel)
     def load_selected_frame(self, payload: dict):
         try:

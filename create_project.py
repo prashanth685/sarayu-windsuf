@@ -242,6 +242,7 @@ class CreateProjectWidget(QWidget):
         self.existing_ip_address = existing_ip_address
         self.existing_tag_name = existing_tag_name
         self.models = []
+        self.active_model_card = None  # Track the currently active model card
         self.available_types = ["Displacement", "Acceleration", "Velocity", "Generic Input"]
         self.available_directions = ["Right", "Left"]
         self.available_channel_counts = ["DAQ4CH", "DAQ8CH", "DAQ10CH"]
@@ -293,9 +294,6 @@ class CreateProjectWidget(QWidget):
                 background-color: transparent;
                 padding: 10px;
             }
-            Qwidget:active {
-                background-color: #e2e8f0;
-            }
         """)
         self.model_layout = QVBoxLayout()
         self.model_layout.setSpacing(25)
@@ -309,6 +307,9 @@ class CreateProjectWidget(QWidget):
         if self.edit_mode and self.existing_models:
             for model in self.existing_models:
                 self.add_model_input(model)
+            # Set the first model as active
+            if self.model_inputs and self.model_inputs[0][0]:
+                self.set_active_model_card(self.model_inputs[0][0])
         
         # Add buttons at the bottom
         self.init_bottom_buttons()
@@ -1094,7 +1095,7 @@ class CreateProjectWidget(QWidget):
             table.verticalHeader().setDefaultSectionSize(80)
             table.setMinimumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 40)
             table.setMaximumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 40)
-            table.setMinimumWidth(1400)
+            table.setMinimumWidth(1500)
             table.resizeColumnsToContents()
             
             # Set specific column widths for better layout - increased for better usability
@@ -1110,7 +1111,10 @@ class CreateProjectWidget(QWidget):
             header.resizeSection(8, 110)  # Gain - increased from 80
             header.resizeSection(9, 100)  # Angle - increased from 80
             header.resizeSection(10, 140) # Direction - increased from 100
-            header.resizeSection(11, 140)  # Shaft - increased from 80
+            header.resizeSection(11, 120)  # Shaft - increased from 80
+            
+            # Make the last column stretch to fill remaining space
+            header.setStretchLastSection(True)
 
             for row in range(num_channels):
                 item = QTableWidgetItem(str(row + 1))
@@ -1162,7 +1166,6 @@ class CreateProjectWidget(QWidget):
                 unit_combo.addItems(self.available_units_displacement)
                 unit_combo.setCurrentText("um")
                 unit_combo.setStyleSheet(self.get_combo_box_style())
-                unit_combo.currentTextChanged.connect(lambda text, r=row: self.update_unit_combo(table, r))
                 table.setCellWidget(row, 5, unit_combo)
 
                 subunit_combo = QComboBox()
@@ -1234,18 +1237,17 @@ class CreateProjectWidget(QWidget):
         # Create collapsible model card
         model_card = QFrame()
         model_card.setObjectName(f"model_card_{len(self.model_inputs)}")
-        model_card.setStyleSheet("""
-            QFrame {
+        model_card.setStyleSheet(f"""
+            QFrame {{
                 background-color: white;
                 border: 2px solid #e5e7eb;
                 border-radius: 12px;
                 margin: 15px;
-            }
-            QFrame[model_active="true"] {
+            }}
+            QFrame[model_active="true"] {{
                 background-color: #f0f9ff;
-                border: 2px solid #3b82f6;
-                box-shadow: 0 4px 6px rgba(59, 130, 246, 0.1);
-            }
+                border: 3px solid #3b82f6;
+            }}
         """)
         
         model_main_layout = QVBoxLayout(model_card)
@@ -1404,37 +1406,35 @@ class CreateProjectWidget(QWidget):
         collapse_button.toggled.connect(lambda checked: self.toggle_model_content(content_widget, collapse_button))
         remove_button.clicked.connect(lambda: self.remove_model_input(model_card))
         
-        # Add click event to make card active
+        # Add click event to make this model active when clicked
         model_card.mousePressEvent = lambda event: self.set_active_model_card(model_card)
         
         # Add to model container
         self.model_layout.addWidget(model_card)
         
+        # Set this model as active
+        self.set_active_model_card(model_card)
+        
         # Store model data
         self.model_inputs.append((model_card, model_title_input, None, model_tabs, channel_count))
-        
-        # Set this card as active when created
-        self.set_active_model_card(model_card)
         
         # Update model numbering
         self.update_model_numbers()
     
-    def set_active_model_card(self, active_card):
+    def set_active_model_card(self, model_card):
         """Set the active model card and update styling"""
-        # Reset all cards to inactive state
-        for model_data in self.model_inputs:
-            model_card = model_data[0]
-            model_card.setProperty("model_active", "false")
-            model_card.setStyleSheet(model_card.styleSheet())
+        # Reset previously active card
+        if self.active_model_card and self.active_model_card != model_card:
+            self.active_model_card.setProperty("model_active", False)
+            self.active_model_card.setStyleSheet(self.active_model_card.styleSheet())
         
-        # Set the active card
-        active_card.setProperty("model_active", "true")
-        active_card.setStyleSheet(active_card.styleSheet())
+        # Set new active card
+        self.active_model_card = model_card
+        model_card.setProperty("model_active", True)
+        model_card.setStyleSheet(model_card.styleSheet())
         
-        # Ensure the style is reapplied
-        active_card.style().unpolish(active_card)
-        active_card.style().polish(active_card)
-        active_card.update()
+        # Ensure the active card is visible
+        model_card.show()
     
     def init_model_general_tab(self, tab_widget, existing_model, num_channels):
         """Initialize the General tab for a specific model"""
@@ -1540,12 +1540,7 @@ class CreateProjectWidget(QWidget):
         tag_name_input = QLineEdit()
         tag_name_input.setPlaceholderText("Enter tag name")
         if existing_model:
-            # Extract tagname from combined address if it exists
-            combined_address = existing_model.get("tagName", "")
-            if "/" in combined_address:
-                tag_name_input.setText(combined_address.split("/")[1])
-            else:
-                tag_name_input.setText(combined_address)
+            tag_name_input.setText(existing_model.get("tagName", ""))
         tag_name_input.setStyleSheet("""
             QLineEdit {
                 border: 1px solid #d1d5db;
@@ -1565,14 +1560,8 @@ class CreateProjectWidget(QWidget):
         # IP Address Input
         ip_address = QLineEdit()
         ip_address.setPlaceholderText("Enter IP Address")
-        ip_address.setText("192.168.1.0")  # Set default IP address
         if existing_model and existing_model.get("ipAddress"):
-            # Extract IP from combined address if it exists
-            combined_address = existing_model["ipAddress"]
-            if "/" in combined_address:
-                ip_address.setText(combined_address.split("/")[0])
-            else:
-                ip_address.setText(combined_address)
+            ip_address.setText(existing_model["ipAddress"])
         ip_address.setStyleSheet("""
             QLineEdit {
                 min-width: 200px;
@@ -1698,7 +1687,7 @@ class CreateProjectWidget(QWidget):
                 font-weight: 600;
                 border: none;
                 border-bottom: 2px solid #e2e8f0;
-                padding: 12px 12px;
+                padding: 12px 8px;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
             }
@@ -1917,7 +1906,7 @@ class CreateProjectWidget(QWidget):
         table.verticalHeader().setDefaultSectionSize(80)
         table.setMinimumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 50)
         table.setMaximumHeight(table.verticalHeader().defaultSectionSize() * num_channels + table.horizontalHeader().height() + 50)
-        table.setMinimumWidth(1400)
+        table.setMinimumWidth(1500)
         
         # Set specific column widths - increased for better usability
         header = table.horizontalHeader()
@@ -1932,7 +1921,10 @@ class CreateProjectWidget(QWidget):
         header.resizeSection(8, 110)  # Gain - increased from 90
         header.resizeSection(9, 100)  # Angle - increased from 80
         header.resizeSection(10, 140) # Direction - increased from 120
-        header.resizeSection(11, 100)  # Shaft - increased from 80
+        header.resizeSection(11, 120)  # Shaft - increased from 80
+        
+        # Make the last column stretch to fill remaining space
+        header.setStretchLastSection(True)
         
         # Populate table with existing data or defaults
         if existing_model and existing_model.get("channels"):
@@ -2020,7 +2012,6 @@ class CreateProjectWidget(QWidget):
         unit_combo.addItems(unit_items)
         unit_combo.setCurrentText(channel_data.get("unit", default_unit) if channel_data else default_unit)
         unit_combo.setStyleSheet(self.get_combo_box_style())
-        unit_combo.currentTextChanged.connect(lambda text, r=row: self.update_unit_combo(table, r))
         table.setCellWidget(row, 5, unit_combo)
 
         # Subunit
@@ -2105,7 +2096,6 @@ class CreateProjectWidget(QWidget):
         unit_combo.addItems(self.available_units_displacement)
         unit_combo.setCurrentText("um")
         unit_combo.setStyleSheet(self.get_combo_box_style())
-        unit_combo.currentTextChanged.connect(lambda text, r=current_rows: self.update_unit_type_based_on_unit(table, r))
         table.setCellWidget(current_rows, 4, unit_combo)
 
         subunit_combo = QComboBox()
@@ -2163,11 +2153,6 @@ class CreateProjectWidget(QWidget):
             # Remove the widget from layout
             self.model_layout.removeWidget(model_card)
             model_card.deleteLater()
-            
-            # If there are remaining cards, set the first one as active
-            if self.model_inputs:
-                first_card = self.model_inputs[0][0]
-                self.set_active_model_card(first_card)
             
             # Update model numbering
             self.update_model_numbers()
@@ -2256,15 +2241,9 @@ class CreateProjectWidget(QWidget):
             io_settings_data = {}
             if hasattr(self, 'model_io_settings') and i in self.model_io_settings:
                 settings = self.model_io_settings[i]
-                ip_address = settings['ip_address'].text().strip()
-                tag_name = settings['tag_name'].text().strip()
-                
-                # Combine IP address and tagname as requested
-                combined_address = f"{ip_address}/{tag_name}" if tag_name else ip_address
-                
                 io_settings_data = {
-                    "ipAddress": combined_address,
-                    "tagName": combined_address  # Use combined address for both fields
+                    "ipAddress": settings['ip_address'].text().strip(),
+                    "tagName": settings['tag_name'].text().strip()
                 }
 
             self.models.append({

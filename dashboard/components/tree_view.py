@@ -44,11 +44,13 @@ class TreeView(QWidget):
         self.add_project_to_tree(project_name)
 
     def add_project_to_tree(self, project_name):
+        # Clear any existing selections before rebuilding tree
+        self.selected_model = None
+        self.selected_channel = None
+        self.selected_channel_item = None
+        
         self.tree.clear()
         if not project_name:
-            self.selected_model = None
-            self.selected_channel = None
-            self.selected_channel_item = None
             return
         project_item = QTreeWidgetItem(self.tree)
         project_item.setText(0, f"📁 {project_name}")
@@ -134,15 +136,22 @@ class TreeView(QWidget):
         if not item or not hasattr(item, 'treeWidget') or item.treeWidget() is None:
             return
             
-        data = item.data(0, Qt.UserRole)
-        if not data:
-            return
-            
         try:
+            data = item.data(0, Qt.UserRole)
+            if not data:
+                return
+                
+            # Safely handle selected_channel_item background reset
             if self.selected_channel_item and self.selected_channel_item != item:
-                # Check if selected_channel_item is still valid
-                if self.selected_channel_item and hasattr(self.selected_channel_item, 'treeWidget') and self.selected_channel_item.treeWidget() is not None:
-                    self.selected_channel_item.setBackground(0, QColor("#232629"))
+                try:
+                    if (self.selected_channel_item and 
+                        hasattr(self.selected_channel_item, 'treeWidget') and 
+                        self.selected_channel_item.treeWidget() is not None):
+                        self.selected_channel_item.setBackground(0, QColor("#232629"))
+                except (RuntimeError, AttributeError):
+                    # Item has been deleted, clear the reference
+                    self.selected_channel_item = None
+                    
             if data["type"] == "project":
                 self.selected_channel = None
                 self.selected_channel_item = None
@@ -150,32 +159,43 @@ class TreeView(QWidget):
                 if item.childCount() > 0:
                     first_child = item.child(0)
                     if first_child:
-                        first_child_data = first_child.data(0, Qt.UserRole)
-                        if first_child_data and first_child_data["type"] == "model":
-                            self.selected_model = first_child_data["name"]
-                            self.tree.setCurrentItem(first_child)
-                            first_child.setBackground(0, QColor("#4a90e2"))
-                            self.model_selected.emit(self.selected_model)
-                            self.console_message(f"Auto-selected model: {self.selected_model}")
+                        try:
+                            first_child_data = first_child.data(0, Qt.UserRole)
+                            if first_child_data and first_child_data["type"] == "model":
+                                self.selected_model = first_child_data["name"]
+                                self.tree.setCurrentItem(first_child)
+                                first_child.setBackground(0, QColor("#4a90e2"))
+                                self.model_selected.emit(self.selected_model)
+                                self.console_message(f"Auto-selected model: {self.selected_model}")
+                        except (RuntimeError, AttributeError):
+                            pass
             elif data["type"] == "model":
                 self.selected_channel = None
                 self.selected_channel_item = None
                 self.selected_model = data["name"]
-                item.setBackground(0, QColor("#4a90e2"))
-                self.model_selected.emit(self.selected_model)
+                try:
+                    item.setBackground(0, QColor("#4a90e2"))
+                    self.model_selected.emit(self.selected_model)
+                except (RuntimeError, AttributeError):
+                    pass
             elif data["type"] == "channel":
                 self.selected_channel = data["channel_name"]
                 self.selected_channel_item = item
                 self.selected_model = data["model"]
-                item.setBackground(0, QColor("#28a745"))
-                self.channel_selected.emit(self.selected_model, self.selected_channel)
-                if hasattr(self.parent_widget, 'current_feature') and self.parent_widget.current_feature:
-                    self.feature_requested.emit(self.parent_widget.current_feature, self.selected_model, self.selected_channel)
-            self.console_message(f"Selected: {data['type']} - {data.get('channel_name', data.get('name', 'Unknown'))}")
+                try:
+                    item.setBackground(0, QColor("#28a745"))
+                    self.channel_selected.emit(self.selected_model, self.selected_channel)
+                    if hasattr(self.parent_widget, 'current_feature') and self.parent_widget.current_feature:
+                        self.feature_requested.emit(self.parent_widget.current_feature, self.selected_model, self.selected_channel)
+                except (RuntimeError, AttributeError):
+                    pass
+                self.console_message(f"Selected: {data['type']} - {data.get('channel_name', data.get('name', 'Unknown'))}")
         except Exception as e:
             logging.error(f"Error handling tree item click: {str(e)}")
-            self.console_message(f"Error handling tree item click: {str(e)}")
-            QMessageBox.warning(self, "Error", f"Error handling tree item click: {str(e)}")
+            # Clear potentially invalid references
+            self.selected_channel = None
+            self.selected_channel_item = None
+            self.selected_model = None
 
     def get_selected_channel(self):
         return self.selected_channel
