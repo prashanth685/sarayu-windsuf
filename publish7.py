@@ -123,6 +123,6 @@ class MQTTPublisher(QObject):
 if __name__ == "__main__":
     app = QApplication([])
     broker = "192.168.1.231"  # Replace with your broker IP
-    topics = ["sarayu/d1/topic1"]
+    topics = ["192.168.1.0/sarayu/d1/topic1"]
     mqtt_publisher = MQTTPublisher(broker, topics)
     app.exec_()

@@ -83,6 +83,10 @@ class TreeView(QWidget):
                 })
                 channels = model.get("channels", [])
                 for idx, channel in enumerate(channels):
+                    # Only show channels that are active (checkbox checked)
+                    if not channel.get("active", True):  # Default to True for backward compatibility
+                        continue
+                    
                     channel_name = channel.get("channelName", f"Channel_{idx + 1}")
                     tag_name = model.get("tagName", channel_name)
                     channel_item = QTreeWidgetItem(model_item)
@@ -107,7 +111,8 @@ class TreeView(QWidget):
                         break
 
             # ✅ Automatically expand all children (project > model > channels)
-            self.expand_all_children(project_item)
+            if project_item and hasattr(project_item, 'treeWidget') and project_item.treeWidget() is not None:
+                self.expand_all_children(project_item)
 
         except Exception as e:
             logging.error(f"Error adding project to tree: {str(e)}")
@@ -116,28 +121,42 @@ class TreeView(QWidget):
 
     def expand_all_children(self, item):
         """Recursively expand all child items in the QTreeWidget."""
+        if not item or not hasattr(item, 'treeWidget') or item.treeWidget() is None:
+            return
         item.setExpanded(True)
         for i in range(item.childCount()):
-            self.expand_all_children(item.child(i))
+            child = item.child(i)
+            if child and hasattr(child, 'treeWidget') and child.treeWidget() is not None:
+                self.expand_all_children(child)
 
     def handle_item_clicked(self, item, column):
+        # Check if item is still valid before processing
+        if not item or not hasattr(item, 'treeWidget') or item.treeWidget() is None:
+            return
+            
         data = item.data(0, Qt.UserRole)
+        if not data:
+            return
+            
         try:
             if self.selected_channel_item and self.selected_channel_item != item:
-                self.selected_channel_item.setBackground(0, QColor("#232629"))
+                # Check if selected_channel_item is still valid
+                if self.selected_channel_item and hasattr(self.selected_channel_item, 'treeWidget') and self.selected_channel_item.treeWidget() is not None:
+                    self.selected_channel_item.setBackground(0, QColor("#232629"))
             if data["type"] == "project":
                 self.selected_channel = None
                 self.selected_channel_item = None
                 self.selected_model = None
                 if item.childCount() > 0:
                     first_child = item.child(0)
-                    first_child_data = first_child.data(0, Qt.UserRole)
-                    if first_child_data["type"] == "model":
-                        self.selected_model = first_child_data["name"]
-                        self.tree.setCurrentItem(first_child)
-                        first_child.setBackground(0, QColor("#4a90e2"))
-                        self.model_selected.emit(self.selected_model)
-                        self.console_message(f"Auto-selected model: {self.selected_model}")
+                    if first_child:
+                        first_child_data = first_child.data(0, Qt.UserRole)
+                        if first_child_data and first_child_data["type"] == "model":
+                            self.selected_model = first_child_data["name"]
+                            self.tree.setCurrentItem(first_child)
+                            first_child.setBackground(0, QColor("#4a90e2"))
+                            self.model_selected.emit(self.selected_model)
+                            self.console_message(f"Auto-selected model: {self.selected_model}")
             elif data["type"] == "model":
                 self.selected_channel = None
                 self.selected_channel_item = None
