@@ -558,7 +558,7 @@ class BodePlotFeature:
             self.progress_bar.setVisible(True)
             self.progress_bar.setValue(0)
             client = MongoClient("mongodb://localhost:27017")
-            database = client["changed_db"]
+            database = client["SarayuDB"]
             history_collection = database["timeview_messages"]
 
             query = {

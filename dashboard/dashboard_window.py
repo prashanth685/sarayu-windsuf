@@ -1255,7 +1255,7 @@ class DashboardWindow(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if self.tree_view.isVisible():
+        if hasattr(self, 'tree_view') and self.tree_view.isVisible():
             window_width = self.width()
             tree_view_width = int(window_width * 0.15)
             right_container_width = int(window_width * 0.85)

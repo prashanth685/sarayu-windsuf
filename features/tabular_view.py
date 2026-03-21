@@ -42,7 +42,7 @@ class TabularViewWorker(QObject):
 
     def run(self):
         try:
-            database = self.db.client.get_database("changed_db")
+            database = self.db.client.get_database("SarayuDB")
             projects_collection = database.get_collection("projects")
             project = projects_collection.find_one({"project_name": self.project_name, "email": self.db.email})
             if not project:
@@ -744,7 +744,7 @@ class TabularViewFeature:
 
     def load_settings_from_database(self):
         try:
-            database = self.mongo_client.get_database("changed_db")
+            database = self.mongo_client.get_database("SarayuDB")
             settings_collection = database.get_collection("TabularViewSettings")
             setting = settings_collection.find_one({"projectId": self.project_id}, sort=[("updated_at", -1)])
             if setting:
@@ -817,7 +817,7 @@ class TabularViewFeature:
             settings.two_xa_visible = self.column_visibility["2xAmp"]
             settings.two_xp_visible = self.column_visibility["2xPhase"]
             # Additional NX visibilities are stored directly in the document
-            database = self.mongo_client.get_database("changed_db")
+            database = self.mongo_client.get_database("SarayuDB")
             settings_collection = database.get_collection("TabularViewSettings")
             settings_collection.insert_one({
                 "projectId": self.project_id,

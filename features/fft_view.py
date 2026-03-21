@@ -362,9 +362,9 @@ class FFTViewFeature:
         
         self.magnitude_plot_item = self.magnitude_plot_widget.plot(pen=pg.mkPen(color='#4a90e2', width=2))
         
-        # Add cursor position label for magnitude plot
+        # Add cursor position label for magnitude plot with enhanced styling
         self.magnitude_cursor_label = pg.TextItem(text='', color='black', anchor=(1, 0))
-        self.magnitude_cursor_label.setFont(pg.Qt.QtGui.QFont('Arial', 10))
+        self.magnitude_cursor_label.setFont(pg.Qt.QtGui.QFont('Arial', 10, weight=pg.Qt.QtGui.QFont.Bold))
         self.magnitude_cursor_label.setPos(self.settings.stop_frequency, 0)
         self.magnitude_plot_widget.addItem(self.magnitude_cursor_label, ignoreBounds=True)
         plot_layout.addWidget(self.magnitude_plot_widget)
@@ -395,9 +395,9 @@ class FFTViewFeature:
         
         self.phase_plot_item = self.phase_plot_widget.plot(pen=pg.mkPen(color='#e74c3c', width=2))
         
-        # Add cursor position label for phase plot
+        # Add cursor position label for phase plot with enhanced styling
         self.phase_cursor_label = pg.TextItem(text='', color='black', anchor=(1, 0))
-        self.phase_cursor_label.setFont(pg.Qt.QtGui.QFont('Arial', 10))
+        self.phase_cursor_label.setFont(pg.Qt.QtGui.QFont('Arial', 10, weight=pg.Qt.QtGui.QFont.Bold))
         self.phase_cursor_label.setPos(self.settings.stop_frequency, 0)
         self.phase_plot_widget.addItem(self.phase_cursor_label, ignoreBounds=True)
         plot_layout.addWidget(self.phase_plot_widget)
@@ -475,7 +475,7 @@ class FFTViewFeature:
     def load_settings_from_database(self):
         try:
             # Use the app's configured FFTSettings collection and schema
-            collection = self.mongo_client["changed_db"]["FFTSettings"]
+            collection = self.mongo_client["SarayuDB"]["FFTSettings"]
             topic = self._resolve_current_topic()
             ch_name = self._resolve_channel_name()
             query = {
@@ -509,7 +509,7 @@ class FFTViewFeature:
     def save_settings_to_database(self):
         try:
             # Use the app's configured FFTSettings collection and schema
-            collection = self.mongo_client["changed_db"]["FFTSettings"]
+            collection = self.mongo_client["SarayuDB"]["FFTSettings"]
             topic = self._resolve_current_topic()
             ch_name = self._resolve_channel_name()
             self.settings.updated_at = datetime.utcnow()
@@ -703,11 +703,11 @@ class FFTViewFeature:
                         # Linear interpolation
                         y_interp = np.interp(x_pos, freq_data, mag_data)
                         unit = self._y_unit_label or 'mil'
-                        magnitude_text = f'Magnitude: {x_pos:.1f} {unit}\nFrequency: {y_interp:.3f}hz'
+                        magnitude_text = f'Magnitude: {y_interp:.3f} {unit},Frequency: {x_pos:.1f} Hz'
                     else:
-                        magnitude_text = f'Magnitude: {x_pos:.1f} Hz\nFrequency: {y_pos:.3f}hz'
+                        magnitude_text = f'Magnitude: {y_interp:.3f},Frequency: {x_pos:.1f} Hz'
                 else:
-                    magnitude_text = f'Magnitude: {x_pos:.1f} Hz\nFrequency: {y_pos:.3f}hz'
+                    magnitude_text = f'Magnitude: {y_pos:.3f},Frequency: {x_pos:.1f} Hz'
                 
                 self.magnitude_cursor_label.setText(magnitude_text)
                 # Position label at top right corner
@@ -725,11 +725,11 @@ class FFTViewFeature:
                     if x_pos >= freq_data[0] and x_pos <= freq_data[-1]:
                         # Linear interpolation
                         y_interp = np.interp(x_pos, freq_data, phase_data_vals)
-                        phase_text = f'Phase: {x_pos:.1f} °\nFrequency: {y_interp:.1f}hz'
+                        phase_text = f'Phase: {y_interp:.1f}°,Frequency: {x_pos:.1f} Hz'
                     else:
-                        phase_text = f'Phase: {x_pos:.1f} Hz\nFrequency: {y_pos:.1f}hz'
+                        phase_text = f'Phase: {y_pos:.1f}°,Frequency: {x_pos:.1f} Hz'
                 else:
-                    phase_text = f'Phase: {x_pos:.1f} Hz\nFrequency: {y_pos:.1f}hz'
+                    phase_text = f'Phase: {y_pos:.1f}°,Frequency: {x_pos:.1f} Hz'
                 
                 self.phase_cursor_label.setText(phase_text)
                 # Position label at top right corner
@@ -1053,4 +1053,3 @@ class FFTViewFeature:
                 self.console.append_to_console(f"FFT: Loaded selected frame {payload.get('frameIndex')} ({N} samples @ {Fs}Hz)")
         except Exception as e:
             self.log_and_set_status(f"FFT: Error loading selected frame: {e}")
-
