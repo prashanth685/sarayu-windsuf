@@ -11,8 +11,10 @@ class ToolBar(QToolBar):
     def __init__(self, parent):
         super().__init__("Features", parent)
         self.parent = parent
+        self.time_report_button = None
         self.initUI()
         self.parent.project_changed.connect(self.update_project_status)
+        self.parent.mqtt_status_changed.connect(self.update_time_report_status)
 
     def initUI(self):
         self.setFixedHeight(80)
@@ -20,6 +22,16 @@ class ToolBar(QToolBar):
 
     def update_project_status(self, project_name):
         self.update_toolbar()
+
+    def update_time_report_status(self, mqtt_connected):
+        """Enable Time Report when MQTT is not connected, disable when connected."""
+        if self.time_report_button:
+            self.time_report_button.setEnabled(not mqtt_connected)
+            # Update tooltip to reflect current status
+            if mqtt_connected:
+                self.time_report_button.setToolTip("Time Report disabled - MQTT is connected")
+            else:
+                self.time_report_button.setToolTip("Access Time Report Feature")
 
     def update_toolbar(self):
         self.clear()
@@ -40,6 +52,10 @@ class ToolBar(QToolBar):
             }
             QToolButton:hover { background-color: #4a90e2; }
             QToolButton:pressed { background-color: #357abd; }
+            QToolButton:disabled { 
+                color: #666666; 
+                background-color: #2c2c2c; 
+            }
         """)
         self.setMovable(False)
         self.setFloatable(False)
@@ -120,6 +136,10 @@ class ToolBar(QToolBar):
             button.clicked.connect(lambda: self.validate_and_display(feature_name))
             self.addWidget(button)
 
+            # Store reference to Time Report button
+            if feature_name == "Time Report":
+                self.time_report_button = button
+
             spacer = QWidget()
             spacer.setFixedWidth(8)
             self.addWidget(spacer)
@@ -127,7 +147,6 @@ class ToolBar(QToolBar):
         feature_actions = [
     ("Time View", "fa5s.stopwatch", "#ffb300", "Access Time View Feature"),
     ("Tabular View", "fa5s.table", "#64b5f6", "Access Tabular View Feature"),
-    ("Time Report", "fa5s.file-alt", "#4db6ac", "Access Time Report Feature"),
     ("FFT", "fa5s.chart-line", "#ba68c8", "Access FFT View Feature"),
     ("Waterfall", "fa5s.water", "#4dd0e1", "Access Waterfall Feature"),
     ("Centerline", "fa5s.ruler", "#4dd0e1", "Access Centerline Feature"),
@@ -138,6 +157,7 @@ class ToolBar(QToolBar):
     ("Polar Plot", "fa5s.snowflake", "#7986cb", "Access Polar Plot Feature"),
     ("History Plot", "fa5s.history", "#ef5350", "Access History Plot Feature"),
     ("Report", "fa5s.file-signature", "#ab47bc", "Access Report Feature"),
+    ("Time Report", "fa5s.file-alt", "#4db6ac", "Access Time Report Feature"),
 ]
 
         for feature_name, text_icon, color, tooltip in feature_actions:
@@ -145,6 +165,10 @@ class ToolBar(QToolBar):
         spacer = QWidget()
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.addWidget(spacer)
+        
+        # Set initial Time Report button status based on current MQTT connection
+        if hasattr(self.parent, 'mqtt_connected'):
+            self.update_time_report_status(self.parent.mqtt_connected)
 
     def validate_and_display(self, feature_name):
         model_based_features = {"Time View", "Time Report"}
