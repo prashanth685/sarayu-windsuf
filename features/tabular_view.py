@@ -42,7 +42,7 @@ class TabularViewWorker(QObject):
 
     def run(self):
         try:
-            database = self.db.client.get_database("SarayuDB")
+            database = self.db.client.get_database("changed_db")
             projects_collection = database.get_collection("projects")
             project = projects_collection.find_one({"project_name": self.project_name, "email": self.db.email})
             if not project:
@@ -744,7 +744,7 @@ class TabularViewFeature:
 
     def load_settings_from_database(self):
         try:
-            database = self.mongo_client.get_database("SarayuDB")
+            database = self.mongo_client.get_database("changed_db")
             settings_collection = database.get_collection("TabularViewSettings")
             setting = settings_collection.find_one({"projectId": self.project_id}, sort=[("updated_at", -1)])
             if setting:
@@ -817,7 +817,7 @@ class TabularViewFeature:
             settings.two_xa_visible = self.column_visibility["2xAmp"]
             settings.two_xp_visible = self.column_visibility["2xPhase"]
             # Additional NX visibilities are stored directly in the document
-            database = self.mongo_client.get_database("SarayuDB")
+            database = self.mongo_client.get_database("changed_db")
             settings_collection = database.get_collection("TabularViewSettings")
             settings_collection.insert_one({
                 "projectId": self.project_id,
@@ -1668,6 +1668,34 @@ class TabularViewFeature:
         logging.error(message)
         if self.console:
             self.console.append_to_console(message)
+
+    def closeEvent(self, event):
+        """Handle widget close event properly to avoid deleted widget errors."""
+        try:
+            # Stop timer first
+            if hasattr(self, 'timer') and self.timer.isActive():
+                self.timer.stop()
+            
+            # Clean up thread
+            if hasattr(self, 'thread') and self.thread.isRunning():
+                self.thread.quit()
+                self.thread.wait(1000)  # Wait up to 1 second
+            
+            # Clear table reference to prevent access after deletion
+            if hasattr(self, 'table') and self.table:
+                self.table = None
+                self.table_initialized = False
+            
+            # Clean up widgets
+            if hasattr(self, 'plot_widgets'):
+                self.plot_widgets.clear()
+            if hasattr(self, 'plots'):
+                self.plots.clear()
+            
+        except Exception as e:
+            logging.error(f"Error during closeEvent: {str(e)}")
+        finally:
+            super().closeEvent(event)
 
     def close(self):
         self.timer.stop()

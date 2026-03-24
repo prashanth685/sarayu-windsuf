@@ -1240,9 +1240,16 @@ class DashboardWindow(QWidget):
                 self.timer.stop()
             self.cleanup_mqtt()
             self.clear_content_layout()
-            if hasattr(self, 'thread') and self.thread.isRunning():
-                self.thread.quit()
-                self.thread.wait()
+            
+            # Clean up worker thread properly
+            if hasattr(self, 'thread') and self.thread:
+                if self.thread.isRunning():
+                    self.thread.quit()
+                    self.thread.wait(2000)  # Wait up to 2 seconds
+                if not self.thread.isFinished():
+                    self.thread.terminate()
+                    self.thread.wait(1000)  # Wait for termination
+                
             if self.db and self.db.is_connected():
                 self.db.close_connection()
             app = QApplication.instance()
@@ -1255,7 +1262,7 @@ class DashboardWindow(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if hasattr(self, 'tree_view') and self.tree_view.isVisible():
+        if self.tree_view.isVisible():
             window_width = self.width()
             tree_view_width = int(window_width * 0.15)
             right_container_width = int(window_width * 0.85)
@@ -1676,7 +1683,9 @@ class DashboardWindow(QWidget):
 
             try:
                 sub_window.close()
-                self.main_section.mdi_area.removeSubWindow(sub_window)
+                # Only remove from MDI area if the window is still in the workspace
+                if self.main_section.mdi_area.subWindowList().count(sub_window) > 0:
+                    self.main_section.mdi_area.removeSubWindow(sub_window)
                 sub_window.setParent(None)
                 sub_window.deleteLater()
                 logging.debug(f"Removed subwindow from MDI area for {key}")

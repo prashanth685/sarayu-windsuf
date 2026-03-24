@@ -1160,7 +1160,7 @@ class CreateProjectWidget(QWidget):
                 type_combo.currentIndexChanged.connect(lambda _, r=row: self.update_unit_combo(table, r))
                 table.setCellWidget(row, 3, type_combo)
                 
-                table.setItem(row, 4, QTableWidgetItem(""))
+                table.setItem(row, 4, QTableWidgetItem("0.007874"))  # Default sensitivity for Displacement
                 
                 unit_combo = QComboBox()
                 unit_combo.addItems(self.available_units_displacement)
@@ -1206,6 +1206,14 @@ class CreateProjectWidget(QWidget):
         # Clear and update unit combo based on channel type
         unit_combo.clear()
         
+        # Set sensitivity based on channel type
+        sensitivity_values = {
+            "Displacement": 0.007874,
+            "Acceleration": 0.1,
+            "Velocity": 0.02,
+            "Generic Input": 1.0
+        }
+        
         if current_type == "Displacement":
             unit_items = self.available_units_displacement
             default_unit = "um"
@@ -1229,6 +1237,10 @@ class CreateProjectWidget(QWidget):
             unit_combo.setCurrentText(current_unit)
         else:
             unit_combo.setCurrentText(default_unit)
+        
+        # Set sensitivity value based on channel type
+        sensitivity_value = sensitivity_values.get(current_type, 1.0)
+        table.setItem(row, 4, QTableWidgetItem(str(sensitivity_value)))
 
     def add_model_input(self, existing_model=None):
         channel_count = self.channel_count_combo.currentText()
@@ -1986,8 +1998,16 @@ class CreateProjectWidget(QWidget):
         type_combo.currentIndexChanged.connect(lambda _, r=row: self.update_unit_combo(table, r))
         table.setCellWidget(row, 3, type_combo)
         
-        # Sensitivity
-        table.setItem(row, 4, QTableWidgetItem(channel_data.get("sensitivity", "0.007874") if channel_data else "0.007874"))
+        # Sensitivity - set based on channel type
+        current_type = type_combo.currentText()
+        sensitivity_values = {
+            "Displacement": 0.007874,
+            "Acceleration": 0.1,
+            "Velocity": 0.02,
+            "Generic Input": 1.0
+        }
+        default_sensitivity = sensitivity_values.get(current_type, 0.007874)
+        table.setItem(row, 4, QTableWidgetItem(channel_data.get("sensitivity", str(default_sensitivity)) if channel_data else str(default_sensitivity)))
         
         # Unit
         unit_combo = QComboBox()

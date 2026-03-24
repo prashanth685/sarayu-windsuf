@@ -818,7 +818,7 @@ class TimeViewFeature:
                     else:
                         new_data = volts * (props["correctionValue"] * props["gain"]) * props["sensitivity"]
                 elif ch == self.main_channels:
-                    new_data = volts / 10
+                    new_data = volts / 100
                 else:
                     new_data = volts
 

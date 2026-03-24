@@ -26,7 +26,7 @@ class AuthWindow(QWidget):
     def initDB(self):
         try:
             self.client = MongoClient("mongodb://localhost:27017/")
-            self.db = self.client["SarayuDB"]
+            self.db = self.client["changed_db"]
             self.user_collection = self.db["users"]
             print("Connected to MongoDB successfully!")
         except ConnectionFailure as e:

@@ -25,7 +25,7 @@ class Database:
         try:
             self.client = MongoClient(self.connection_string, serverSelectionTimeoutMS=5000)
             self.client.server_info()  # Test connection
-            self.db = self.client["SarayuDB"]
+            self.db = self.client["changed_db"]
             self.projects_collection = self.db["projects"]
             self.messages_collection = self.db["mqttmessage"]
             self.history_collection = self.db["history"]

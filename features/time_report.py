@@ -290,7 +290,6 @@ class TimeReportFeature:
                 font-size: 16px;
                 font-weight: 600;
                 min-width: 220px;
-                box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.05);
             }
             QComboBox:hover {
                 border: 2px solid #42a5f5;

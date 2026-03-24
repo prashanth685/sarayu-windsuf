@@ -171,7 +171,7 @@ class ToolBar(QToolBar):
             self.update_time_report_status(self.parent.mqtt_connected)
 
     def validate_and_display(self, feature_name):
-        model_based_features = {"Time View", "Time Report"}
+        model_based_features = {"Time View", "Time Report", "Tabular View", "Waterfall"}
         selected_model = self.parent.tree_view.get_selected_model()
         if not selected_model and feature_name in model_based_features:
             project_data = self.parent.db.get_project_data(self.parent.current_project)

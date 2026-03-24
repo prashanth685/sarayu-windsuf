@@ -475,7 +475,7 @@ class FFTViewFeature:
     def load_settings_from_database(self):
         try:
             # Use the app's configured FFTSettings collection and schema
-            collection = self.mongo_client["SarayuDB"]["FFTSettings"]
+            collection = self.mongo_client["changed_db"]["FFTSettings"]
             topic = self._resolve_current_topic()
             ch_name = self._resolve_channel_name()
             query = {
@@ -509,7 +509,7 @@ class FFTViewFeature:
     def save_settings_to_database(self):
         try:
             # Use the app's configured FFTSettings collection and schema
-            collection = self.mongo_client["SarayuDB"]["FFTSettings"]
+            collection = self.mongo_client["changed_db"]["FFTSettings"]
             topic = self._resolve_current_topic()
             ch_name = self._resolve_channel_name()
             self.settings.updated_at = datetime.utcnow()
