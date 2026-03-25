@@ -487,6 +487,11 @@ class DashboardWindow(QWidget):
             self.display_select_project()
             return
 
+        existing_models = project_data.get("models", [])
+        logging.debug(f"Editing project {self.current_project} with {len(existing_models)} models")
+        for i, model in enumerate(existing_models):
+            logging.debug(f"Model {i}: {model}")
+
         self.create_project_widget = CreateProjectWidget(
             self,
             edit_mode=True,
