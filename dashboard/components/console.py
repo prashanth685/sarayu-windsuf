@@ -137,14 +137,14 @@ class Console(QWidget):
             self.minimize_button.hide()
             self.maximize_button.show()
             if hasattr(self.parent, 'console_container'):
-                self.parent.console_container.setFixedHeight(80)
+                self.parent.console_container.setFixedHeight(60)
             logging.info("Console minimized")
         except Exception as e:
             logging.error(f"Error minimizing console: {str(e)}")
 
     def maximize_console(self):
         try:
-            self.console_message_area.setFixedHeight(200)
+            self.console_message_area.setFixedHeight(80)
             self.console_message_area.show()
             # Check if console_layout exists before accessing it
             if hasattr(self.parent, 'console_layout'):
@@ -158,7 +158,7 @@ class Console(QWidget):
             self.minimize_button.show()
             self.maximize_button.hide()
             if hasattr(self.parent, 'console_container'):
-                self.parent.console_container.setFixedHeight(250)
+                self.parent.console_container.setFixedHeight(170)
             logging.info("Console maximized")
         except Exception as e:
             logging.error(f"Error maximizing console: {str(e)}")

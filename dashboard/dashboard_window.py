@@ -15,6 +15,7 @@ from dashboard.components.frequencyplot import FrequencyPlot
 from dashboard.components.tree_view import TreeView
 from dashboard.components.console import Console
 from dashboard.components.mqtt_status import MQTTStatus
+from dashboard.components.loader import LoaderWidget
 from mqtthandler import MQTTHandler
 from features.tabular_view import TabularViewFeature
 from features.polar import PolarPlotFeature
@@ -480,30 +481,53 @@ class DashboardWindow(QWidget):
         self.tree_container.setVisible(False)  # Hide entire left sidebar
         self.sub_tool_bar.setVisible(False)
 
-        project_data = self.db.get_project_data(self.current_project)
-        if not project_data:
-            self.console.append_to_console(f"Error: Project {self.current_project} not found.")
-            logging.error(f"Project {self.current_project} not found!")
+        # Show loader immediately
+        self.loader_widget = LoaderWidget()
+        self.loader_widget.start_loading()
+        self.main_section.set_widget(self.loader_widget)
+        
+        # Load project data asynchronously with a small delay for UX
+        QTimer.singleShot(100, self._load_edit_project_async)
+
+    def _load_edit_project_async(self):
+        """Load project data asynchronously and show the edit widget"""
+        try:
+            project_data = self.db.get_project_data(self.current_project)
+            if not project_data:
+                self.console.append_to_console(f"Error: Project {self.current_project} not found.")
+                logging.error(f"Project {self.current_project} not found!")
+                self.display_select_project()
+                return
+
+            existing_models = project_data.get("models", [])
+            logging.debug(f"Editing project {self.current_project} with {len(existing_models)} models")
+            for i, model in enumerate(existing_models):
+                logging.debug(f"Model {i}: {model}")
+
+            # Stop the loader animation
+            if hasattr(self, 'loader_widget'):
+                self.loader_widget.stop_loading()
+
+            self.create_project_widget = CreateProjectWidget(
+                self,
+                edit_mode=True,
+                existing_project_name=self.current_project,
+                existing_models=project_data.get("models", []),
+                existing_channel_count=project_data.get("channel_count", "DAQ4CH"),
+                existing_ip_address=project_data.get("ip_address", ""),
+                existing_tag_name=project_data.get("tag_name", "")
+            )
+            self.create_project_widget.project_edited.connect(self.handle_project_edited)
+            self.main_section.set_widget(self.create_project_widget)
+            logging.debug(f"Displayed CreateProjectWidget in edit mode for project: {self.current_project}")
+            
+        except Exception as e:
+            logging.error(f"Error loading edit project dialog: {str(e)}")
+            self.console.append_to_console(f"Error loading project editor: {str(e)}")
+            # Stop loader on error
+            if hasattr(self, 'loader_widget'):
+                self.loader_widget.stop_loading()
             self.display_select_project()
-            return
-
-        existing_models = project_data.get("models", [])
-        logging.debug(f"Editing project {self.current_project} with {len(existing_models)} models")
-        for i, model in enumerate(existing_models):
-            logging.debug(f"Model {i}: {model}")
-
-        self.create_project_widget = CreateProjectWidget(
-            self,
-            edit_mode=True,
-            existing_project_name=self.current_project,
-            existing_models=project_data.get("models", []),
-            existing_channel_count=project_data.get("channel_count", "DAQ4CH"),
-            existing_ip_address=project_data.get("ip_address", ""),
-            existing_tag_name=project_data.get("tag_name", "")
-        )
-        self.create_project_widget.project_edited.connect(self.handle_project_edited)
-        self.main_section.set_widget(self.create_project_widget)
-        logging.debug(f"Displayed CreateProjectWidget in edit mode for project: {self.current_project}")
 
     def handle_project_edited(self, project_name, models, channel_count, ip_address, tag_name):
         try:
