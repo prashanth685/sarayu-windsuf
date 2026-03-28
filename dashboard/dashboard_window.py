@@ -13,7 +13,6 @@ from dashboard.components.sub_tool_bar import SubToolBar
 from dashboard.components.main_section import MainSection
 from dashboard.components.frequencyplot import FrequencyPlot
 from dashboard.components.tree_view import TreeView
-from dashboard.components.console import Console
 from dashboard.components.mqtt_status import MQTTStatus
 from dashboard.components.loader import LoaderWidget
 from mqtthandler import MQTTHandler
@@ -58,7 +57,7 @@ class Worker(QObject):
                 self.select_project.emit()
         except Exception as e:
             logging.error(f"Error in deferred initialization: {str(e)}")
-            self.dashboard.console.append_to_console(f"Error in deferred initialization: {str(e)}")
+            self.dashboard.mqtt_console_append(f"Error in deferred initialization: {str(e)}")
         finally:
             self.finished.emit()
 
@@ -316,7 +315,6 @@ class DashboardWindow(QWidget):
         self.sidebar_collapsed = False
         self.update_sidebar()
 
-        self.console = Console(self)
         self.mqtt_status = MQTTStatus(self)
 
         self.console_layout = QVBoxLayout()
@@ -325,14 +323,17 @@ class DashboardWindow(QWidget):
 
         self.console_container = QWidget()
         self.console_container.setStyleSheet("background-color: black;")
-        self.console_container.setFixedHeight(80)
+        self.console_container.setFixedHeight(40)
         self.console_container.setLayout(self.console_layout)
 
-        self.console_layout.addWidget(self.console.button_container)
-        self.console_layout.addWidget(self.console.console_message_area)
         self.console_layout.addWidget(self.mqtt_status)
 
         main_layout.addWidget(self.console_container)
+
+    def mqtt_console_append(self, text):
+        """Append text to the MQTT status console"""
+        if hasattr(self, 'mqtt_status'):
+            self.mqtt_status.append_to_console(text)
 
     def _create_icon_button(self, icon, tooltip):
         """Create a circular icon button for the collapsed sidebar."""
@@ -408,7 +409,7 @@ class DashboardWindow(QWidget):
         """Handle channel selection from TreeView."""
         self.selected_channel = channel_name
         logging.debug(f"Channel selected: {model_name}/{channel_name}")
-        self.console.append_to_console(f"Selected channel: {channel_name} for model {model_name}")
+        self.mqtt_console_append(f"Selected channel: {channel_name} for model {model_name}")
 
     def deferred_initialization(self):
         self.worker = Worker(self)
@@ -494,7 +495,7 @@ class DashboardWindow(QWidget):
         try:
             project_data = self.db.get_project_data(self.current_project)
             if not project_data:
-                self.console.append_to_console(f"Error: Project {self.current_project} not found.")
+                self.mqtt_console_append(f"Error: Project {self.current_project} not found.")
                 logging.error(f"Project {self.current_project} not found!")
                 self.display_select_project()
                 return
@@ -523,7 +524,7 @@ class DashboardWindow(QWidget):
             
         except Exception as e:
             logging.error(f"Error loading edit project dialog: {str(e)}")
-            self.console.append_to_console(f"Error loading project editor: {str(e)}")
+            self.mqtt_console_append(f"Error loading project editor: {str(e)}")
             # Stop loader on error
             if hasattr(self, 'loader_widget'):
                 self.loader_widget.stop_loading()
@@ -663,7 +664,7 @@ class DashboardWindow(QWidget):
                 "project_name": self.current_project,
                 "channel": ch,
                 "model_name": model_name,
-                "console": self.console
+                "console": self.mqtt_status
             }
             if feature_name in ["Orbit", "FFT", "Waterfall"]:
                 feature_kwargs["channel_count"] = self.channel_count
@@ -727,7 +728,7 @@ class DashboardWindow(QWidget):
         self.current_session_frame_selections = {}  # Clear current session selections
         project_data = self.db.get_project_data(project_name)
         if not project_data:
-            self.console.append_to_console(f"Error: Project {project_name} not found.")
+            self.mqtt_console_append(f"Error: Project {project_name} not found.")
             logging.error(f"Project {project_name} not found!")
             self.display_select_project()
             return
@@ -757,7 +758,7 @@ class DashboardWindow(QWidget):
             if self.channel_count not in [4, 8, 10]:
                 raise ValueError(f"Invalid channel count: {self.channel_count}")
         except (ValueError, TypeError) as e:
-            self.console.append_to_console(f"Error: Invalid channel count {raw_channel_count} for project {project_name}. Defaulting to 4.")
+            self.mqtt_console_append(f"Error: Invalid channel count {raw_channel_count} for project {project_name}. Defaulting to 4.")
             logging.error(f"Invalid channel count {raw_channel_count} for project {project_name}: {str(e)}. Defaulting to 4.")
             self.channel_count = 4
 
@@ -774,7 +775,7 @@ class DashboardWindow(QWidget):
         logging.debug(f"TreeView visibility: {self.tree_view.isVisible()}")
         logging.debug(f"SubToolBar visibility: {self.sub_tool_bar.isVisible()}")
         logging.debug(f"Loading project: {project_name} with {self.channel_count} channels")
-        self.console.append_to_console(f"Loaded project {project_name} with {self.channel_count} channels")
+        self.mqtt_console_append(f"Loaded project {project_name} with {self.channel_count} channels")
 
         self.clear_content_layout()
         if self.project_structure_widget:
@@ -788,14 +789,14 @@ class DashboardWindow(QWidget):
         self.load_project_features()
         # Do not auto-connect to MQTT; wait for explicit user action via Connect button
         try:
-            self.console.append_to_console("MQTT is idle. Click 'Connect to MQTT' (🔗) to start streaming.")
+            self.mqtt_console_append("MQTT is idle. Click 'Connect to MQTT' (🔗) to start streaming.")
         except Exception:
             pass
 
     def setup_mqtt(self):
         if not self.current_project:
             logging.warning("No project selected for MQTT setup")
-            self.console.append_to_console("No project selected for MQTT setup")
+            self.mqtt_console_append("No project selected for MQTT setup")
             return
 
         self.cleanup_mqtt()
@@ -805,7 +806,7 @@ class DashboardWindow(QWidget):
                 self.mqtt_handler = MQTTHandler(self.db, self.current_project)
                 self.mqtt_handler.data_received.connect(self.on_data_received)
                 self.mqtt_handler.connection_status.connect(self.on_mqtt_status)
-                self.mqtt_handler.save_status.connect(self.console.append_to_console)
+                self.mqtt_handler.save_status.connect(self.mqtt_console_append)
                 # Connect the measured_dc_values signal to update the DC settings window
                 # Receive gap voltages extracted from binary payload headers
                 try:
@@ -824,15 +825,15 @@ class DashboardWindow(QWidget):
                     logging.error("Failed to register existing features with MQTT handler")
                 self.mqtt_handler.start()
                 logging.info(f"MQTT setup initiated for project: {self.current_project}")
-                self.console.append_to_console(f"MQTT setup initiated for project: {self.current_project}")
+                self.mqtt_console_append(f"MQTT setup initiated for project: {self.current_project}")
             else:
                 logging.warning(f"No tags found for project: {self.current_project}")
                 self.mqtt_connected = False
                 self.mqtt_status_changed.emit(False)
-                self.console.append_to_console(f"No tags found for project: {self.current_project}")
+                self.mqtt_console_append(f"No tags found for project: {self.current_project}")
         except Exception as e:
             logging.error(f"Failed to setup MQTT: {str(e)}")
-            self.console.append_to_console(f"Failed to setup MQTT: {str(e)}")
+            self.mqtt_console_append(f"Failed to setup MQTT: {str(e)}")
             self.mqtt_connected = False
             self.mqtt_status_changed.emit(False)
 
@@ -921,7 +922,7 @@ class DashboardWindow(QWidget):
             logging.debug(f"Processed data for {feature_name}/{model_name}, frame {frame_index}, channel={channel_name or 'ALL'}")
         except Exception as e:
             logging.error(f"Error in on_data_received for {feature_name}/{model_name}, frame {frame_index}: {str(e)}")
-            self.console.append_to_console(f"Error processing data for {feature_name}: {str(e)}")
+            self.mqtt_console_append(f"Error processing data for {feature_name}: {str(e)}")
 
     def _schedule_feature_update(self, dkey, feature_name, model_name, channel, feature_instance, tag_name, values, sample_rate, frame_index):
         """Debounce updates per feature instance key, keeping only the latest payload within a short window."""
@@ -964,7 +965,7 @@ class DashboardWindow(QWidget):
                 logging.debug(f"Updated {feature_name} for {model_name}/{channel or 'all channels'}, frame {frame_index}")
         except Exception as e:
             logging.error(f"Error updating {feature_name} for {model_name}/{channel or 'all channels'}: {str(e)}")
-            self.console.append_to_console(f"Error updating {feature_name}: {str(e)}")
+            self.mqtt_console_append(f"Error updating {feature_name}: {str(e)}")
 
     def on_gap_values(self, model_name: str, tag_name: str, gaps: list):
         """Receive gap voltages for a model and push them to all Tabular View instances of that model."""
@@ -993,7 +994,7 @@ class DashboardWindow(QWidget):
     def on_mqtt_status(self, status):
         self.mqtt_connected = "Connected" in status
         self.mqtt_status_changed.emit(self.mqtt_connected)
-        self.console.append_to_console(status)
+        self.mqtt_console_append(status)
         logging.info(status)
 
     def start_saving(self):
@@ -1026,7 +1027,7 @@ class DashboardWindow(QWidget):
         self.saving_filenames[selected_model] = filename
         self.is_saving = True
         self.saving_state_changed.emit(True)
-        self.console.append_to_console(f"Started saving for model {selected_model} to {filename}")
+        self.mqtt_console_append(f"Started saving for model {selected_model} to {filename}")
 
     def stop_saving(self):
         if not self.saving_filenames:
@@ -1053,9 +1054,9 @@ class DashboardWindow(QWidget):
                 QMessageBox.information(self, "Saved", msg)
             except Exception:
                 pass
-            self.console.append_to_console(msg)
+            self.mqtt_console_append(msg)
         else:
-            self.console.append_to_console(f"Stopped saving for model {selected_model}")
+            self.mqtt_console_append(f"Stopped saving for model {selected_model}")
         # Advance filename field to next available name
         try:
             if hasattr(self.sub_tool_bar, 'refresh_filename'):
@@ -1320,11 +1321,11 @@ class DashboardWindow(QWidget):
             self.main_section.arrange_layout()
             
             if freq_plot_keys:
-                self.console.append_to_console(f"Removed {len(freq_plot_keys)} saved file plot(s)")
+                self.mqtt_console_append(f"Removed {len(freq_plot_keys)} saved file plot(s)")
                 logging.info(f"Removed {len(freq_plot_keys)} FrequencyPlot windows")
         except Exception as e:
             logging.error(f"Error removing saved file plots: {e}")
-            self.console.append_to_console(f"Error removing saved file plots: {str(e)}")
+            self.mqtt_console_append(f"Error removing saved file plots: {str(e)}")
     
     def update_window_titles_remove_frame_index(self):
         """Update window titles to remove frame index"""
@@ -1343,7 +1344,7 @@ class DashboardWindow(QWidget):
 
     def connect_mqtt(self):
         if self.mqtt_connected:
-            self.console.append_to_console("Already connected to MQTT")
+            self.mqtt_console_append("Already connected to MQTT")
             return
         
         # Remove saved file plots and clear frame index when connecting to MQTT
@@ -1359,17 +1360,17 @@ class DashboardWindow(QWidget):
 
     def disconnect_mqtt(self):
         if not self.mqtt_connected:
-            self.console.append_to_console("Already disconnected from MQTT")
+            self.mqtt_console_append("Already disconnected from MQTT")
             return
         try:
             self.cleanup_mqtt()
             self.mqtt_connected = False
             self.mqtt_status_changed.emit(False)
             logging.info(f"MQTT disconnected for project: {self.current_project}")
-            self.console.append_to_console(f"MQTT disconnected for project: {self.current_project}")
+            self.mqtt_console_append(f"MQTT disconnected for project: {self.current_project}")
         except Exception as e:
             logging.error(f"Failed to disconnect MQTT: {str(e)}")
-            self.console.append_to_console(f"Failed to disconnect MQTT: {str(e)}")
+            self.mqtt_console_append(f"Failed to disconnect MQTT: {str(e)}")
 
     def display_feature_content(self, feature_name):
         if not self.current_project:
@@ -1393,8 +1394,12 @@ class DashboardWindow(QWidget):
         if not channel_names:
             QMessageBox.warning(self, "Error", "No channels available for the model.")
             return
-        current_console_height = self.console.console_message_area.height()
-        self.console.console_message_area.setFixedHeight(current_console_height)
+        # Check if console is maximized and preserve height
+        current_console_height = 40  # Default minimized height
+        if hasattr(self, 'mqtt_status') and self.mqtt_status.is_maximized:
+            current_console_height = 120  # Maximized height
+        if hasattr(self, 'console_container'):
+            self.console_container.setFixedHeight(current_console_height)
 
         try:
             # Determine which channels to open for this feature
@@ -1414,7 +1419,7 @@ class DashboardWindow(QWidget):
                     channel_list = [self.selected_channel]
                 else:
                     channel_list = [channel_names[0]]
-                    self.console.append_to_console(f"No channel selected in TreeView. Defaulting to {channel_names[0]}.")
+                    self.mqtt_console_append(f"No channel selected in TreeView. Defaulting to {channel_names[0]}.")
                     logging.debug(f"No channel selected. Defaulting to {channel_names[0]} for {feature_name}")
 
             feature_classes = {
@@ -1456,7 +1461,7 @@ class DashboardWindow(QWidget):
                             if sub_window.isMinimized():
                                 sub_window.showNormal()
                             logging.debug(f"Activated existing subwindow for {feature_name}/{selected_model}/{channel or 'No Channel'}")
-                            self.console.append_to_console(f"{feature_name} already open. Brought to front.")
+                            self.mqtt_console_append(f"{feature_name} already open. Brought to front.")
                         except Exception as e:
                             logging.error(f"Error activating existing subwindow for {existing_key}: {str(e)}")
                     continue
@@ -1473,7 +1478,7 @@ class DashboardWindow(QWidget):
                         "project_name": self.current_project,
                         "channel": channel,
                         "model_name": selected_model,
-                        "console": self.console
+                        "console": self.mqtt_status
                     }
                     if feature_name in ["Orbit", "FFT", "Waterfall"]:
                         feature_kwargs["channel_count"] = self.channel_count
@@ -1532,11 +1537,11 @@ class DashboardWindow(QWidget):
                     if payload and hasattr(feature_instance, "load_selected_frame"):
                         try:
                             feature_instance.load_selected_frame(payload)
-                            self.console.append_to_console(f"{feature_name}: loaded frame {payload.get('frameIndex')} from {payload.get('filename')}")
+                            self.mqtt_console_append(f"{feature_name}: loaded frame {payload.get('frameIndex')} from {payload.get('filename')}")
                         except Exception as e:
-                            self.console.append_to_console(f"{feature_name}: error loading selected frame: {e}")
+                            self.mqtt_console_append(f"{feature_name}: error loading selected frame: {e}")
 
-                    self.console.console_message_area.setFixedHeight(current_console_height)
+                    # Console height is already set above
                 except Exception as e:
                     logging.error(f"Failed to load feature {feature_name} for channel {channel or 'No Channel'}: {str(e)}")
                     QMessageBox.warning(self, "Error", f"Failed to load {feature_name}: {str(e)}")
@@ -1547,9 +1552,9 @@ class DashboardWindow(QWidget):
 
             if opened_new:
                 self.main_section.arrange_layout()
-                self.console.console_message_area.setFixedHeight(current_console_height)
+                # Console height is already set above
             else:
-                self.console.append_to_console(f"{feature_name} is already open.")
+                self.mqtt_console_append(f"{feature_name} is already open.")
             self.current_feature = feature_name  # Update current_feature
         except Exception as e:
             logging.error(f"Error displaying feature content: {str(e)}")
@@ -1595,16 +1600,16 @@ class DashboardWindow(QWidget):
                 if payload and hasattr(freq_plot, "load_selected_frame"):
                     try:
                         freq_plot.load_selected_frame(payload)
-                        self.console.append_to_console(f"FrequencyPlot: loaded frame {payload.get('frameIndex')} from {payload.get('filename')}")
+                        self.mqtt_console_append(f"FrequencyPlot: loaded frame {payload.get('frameIndex')} from {payload.get('filename')}")
                     except Exception as e:
                         logging.error(f"Error applying selected frame to FrequencyPlot: {e}")
                 
                 self.main_section.arrange_layout()
                 logging.debug(f"Opened FrequencyPlot for {file_data}")
-                self.console.append_to_console(f"Opened FrequencyPlot for {file_data['filename']} (model: {file_data['model_name']})")
+                self.mqtt_console_append(f"Opened FrequencyPlot for {file_data['filename']} (model: {file_data['model_name']})")
             else:
                 logging.error(f"Failed to open FrequencyPlot subwindow for {file_data}")
-                self.console.append_to_console("Failed to open Frequency Plot window")
+                self.mqtt_console_append("Failed to open Frequency Plot window")
         except Exception as e:
             logging.error(f"Error handling open file: {str(e)}")
             QMessageBox.warning(self, "Error", f"Failed to open file: {str(e)}")
@@ -1613,7 +1618,7 @@ class DashboardWindow(QWidget):
         try:
             model_name = selected_payload.get("model")
             if not self.current_project or not model_name:
-                self.console.append_to_console("Project or model missing for selection.")
+                self.mqtt_console_append("Project or model missing for selection.")
                 return
 
             # Normalize payload keys for all features
@@ -1637,7 +1642,7 @@ class DashboardWindow(QWidget):
 
             self.last_selection_payload_by_model[model_name] = normalized
             self.current_session_frame_selections[model_name] = normalized.get("frameIndex")
-            self.console.append_to_console(
+            self.mqtt_console_append(
                 f"Selected frame {normalized.get('frameIndex')} from {normalized.get('filename')} "
                 f"stored for model {model_name}. Now choose a feature to view."
             )
@@ -1662,7 +1667,7 @@ class DashboardWindow(QWidget):
             self._apply_selected_frame_to_features(model_name)
         except Exception as e:
             logging.error(f"Failed to handle frequency selection: {str(e)}")
-            self.console.append_to_console(f"Error applying selection: {str(e)}")
+            self.mqtt_console_append(f"Error applying selection: {str(e)}")
 
     def on_subwindow_closed(self, event, key):
         try:
@@ -1757,6 +1762,6 @@ class DashboardWindow(QWidget):
                 except Exception as e:
                     logging.error(f"Error applying selected frame to {key}: {e}")
             # Do not auto-open any features; rely on user-selected subwindows only
-            self.console.append_to_console(f"Applied selected frame to {updated_count} open feature(s) for model {model_name}.")
+            self.mqtt_console_append(f"Applied selected frame to {updated_count} open feature(s) for model {model_name}.")
         except Exception as e:
             logging.error(f"Error in _apply_selected_frame_to_features: {e}")
