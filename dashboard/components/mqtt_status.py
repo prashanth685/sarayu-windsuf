@@ -36,6 +36,14 @@ class MQTTStatus(QWidget):
                 font-size: 14px; 
                 padding: 10px; 
             }
+            QPlainTextEdit QScrollBar:vertical { 
+                width: 0px; 
+                height: 0px; 
+            }
+            QPlainTextEdit QScrollBar:horizontal { 
+                width: 0px; 
+                height: 0px; 
+            }
         """)
         main_layout.addWidget(self.console_message_area)
         
@@ -96,7 +104,7 @@ class MQTTStatus(QWidget):
         self.is_maximized = True
         self.maximize_button.setText("🗕")
         self.maximize_button.setToolTip("Minimize Console")
-        self.setFixedHeight(120)
+        self.setFixedHeight(100)
         
         # Show console area (already in layout at position 0)
         self.console_message_area.setFixedHeight(80)

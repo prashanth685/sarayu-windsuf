@@ -1397,7 +1397,7 @@ class DashboardWindow(QWidget):
         # Check if console is maximized and preserve height
         current_console_height = 40  # Default minimized height
         if hasattr(self, 'mqtt_status') and self.mqtt_status.is_maximized:
-            current_console_height = 120  # Maximized height
+            current_console_height = 100  # Maximized height
         if hasattr(self, 'console_container'):
             self.console_container.setFixedHeight(current_console_height)
 

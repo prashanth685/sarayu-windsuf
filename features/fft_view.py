@@ -325,7 +325,26 @@ class FFTViewFeature:
         self.magnitude_plot_widget = pg.PlotWidget()
         self.magnitude_plot_widget.setBackground("white")
         display_channel = self.channel_name if self.channel_name else f"Channel_{self.channel_index + 1}" if self.channel_index is not None else "Unknown"
-        self.magnitude_plot_widget.setTitle(f"Magnitude Spectrum - {display_channel}", color="black", size="12pt")
+        
+        # Create horizontal layout for title and magnitude text
+        magnitude_title_layout = QHBoxLayout()
+        magnitude_title_layout.setContentsMargins(0, 0, 0, 0)
+        
+        magnitude_title = QLabel(f"Magnitude Spectrum - {display_channel}")
+        magnitude_title.setStyleSheet("font-size: 12pt; font-weight: bold; color: black;")
+        magnitude_title_layout.addWidget(magnitude_title)
+        magnitude_title_layout.addStretch()
+        
+        # Add magnitude text label
+        self.magnitude_text_label = QLabel("Magnitude: --")
+        self.magnitude_text_label.setStyleSheet("font-size: 10pt; color: #333; font-weight: bold;")
+        magnitude_title_layout.addWidget(self.magnitude_text_label)
+        
+        # Create a container widget for the title and text
+        magnitude_title_container = QWidget()
+        magnitude_title_container.setLayout(magnitude_title_layout)
+        
+        self.magnitude_plot_widget.setTitle("", color="black", size="12pt")  # Remove title from plot
         self.magnitude_plot_widget.setLabel('left', 'Amplitude', color='#000000')
         self.magnitude_plot_widget.setLabel('bottom', 'Frequency (Hz)', color='#000000')
         
@@ -367,12 +386,40 @@ class FFTViewFeature:
         self.magnitude_cursor_label.setFont(pg.Qt.QtGui.QFont('Arial', 10, weight=pg.Qt.QtGui.QFont.Bold))
         self.magnitude_cursor_label.setPos(self.settings.stop_frequency, 0)
         self.magnitude_plot_widget.addItem(self.magnitude_cursor_label, ignoreBounds=True)
-        plot_layout.addWidget(self.magnitude_plot_widget)
+        
+        # Create a container for magnitude plot
+        magnitude_container = QWidget()
+        magnitude_layout = QVBoxLayout()
+        magnitude_layout.setContentsMargins(0, 0, 0, 0)
+        magnitude_layout.addWidget(magnitude_title_container)
+        magnitude_layout.addWidget(self.magnitude_plot_widget)
+        magnitude_container.setLayout(magnitude_layout)
+        
+        plot_layout.addWidget(magnitude_container)
 
         # Create phase plot widget with same enhancements
         self.phase_plot_widget = pg.PlotWidget()
         self.phase_plot_widget.setBackground("white")
-        self.phase_plot_widget.setTitle(f"Phase Spectrum - {display_channel}", color="black", size="12pt")
+        
+        # Create horizontal layout for title and phase text
+        phase_title_layout = QHBoxLayout()
+        phase_title_layout.setContentsMargins(0, 0, 0, 0)
+        
+        phase_title = QLabel(f"Phase Spectrum - {display_channel}")
+        phase_title.setStyleSheet("font-size: 12pt; font-weight: bold; color: black;")
+        phase_title_layout.addWidget(phase_title)
+        phase_title_layout.addStretch()
+        
+        # Add phase text label
+        self.phase_text_label = QLabel("Phase: --")
+        self.phase_text_label.setStyleSheet("font-size: 10pt; color: #333; font-weight: bold;")
+        phase_title_layout.addWidget(self.phase_text_label)
+        
+        # Create a container widget for the title and text
+        phase_title_container = QWidget()
+        phase_title_container.setLayout(phase_title_layout)
+        
+        self.phase_plot_widget.setTitle("", color="black", size="12pt")  # Remove title from plot
         self.phase_plot_widget.setLabel('left', 'Phase (degrees)', color='#000000')
         self.phase_plot_widget.setLabel('bottom', 'Frequency (Hz)', color='#000000')
         
@@ -400,7 +447,16 @@ class FFTViewFeature:
         self.phase_cursor_label.setFont(pg.Qt.QtGui.QFont('Arial', 10, weight=pg.Qt.QtGui.QFont.Bold))
         self.phase_cursor_label.setPos(self.settings.stop_frequency, 0)
         self.phase_plot_widget.addItem(self.phase_cursor_label, ignoreBounds=True)
-        plot_layout.addWidget(self.phase_plot_widget)
+        
+        # Create a container for phase plot
+        phase_container = QWidget()
+        phase_layout = QVBoxLayout()
+        phase_layout.setContentsMargins(0, 0, 0, 0)
+        phase_layout.addWidget(phase_title_container)
+        phase_layout.addWidget(self.phase_plot_widget)
+        phase_container.setLayout(phase_layout)
+        
+        plot_layout.addWidget(phase_container)
 
         # Create a left container to hold the plots and add to a content layout with the right sidebar
         left_container = QWidget()
@@ -709,9 +765,7 @@ class FFTViewFeature:
                 else:
                     magnitude_text = f'Magnitude: {y_pos:.3f},Frequency: {x_pos:.1f} Hz'
                 
-                self.magnitude_cursor_label.setText(magnitude_text)
-                # Position label at top right corner
-                self.magnitude_cursor_label.setPos(self.settings.stop_frequency * 0.98, self.magnitude_plot_widget.getViewBox().viewRange()[1][1] * 0.98)
+                self.magnitude_text_label.setText(magnitude_text)
             
             if hasattr(self, 'phase_cursor_label'):
                 # Get the actual data values at cursor position for phase plot
@@ -731,9 +785,7 @@ class FFTViewFeature:
                 else:
                     phase_text = f'Phase: {y_pos:.1f}°,Frequency: {x_pos:.1f} Hz'
                 
-                self.phase_cursor_label.setText(phase_text)
-                # Position label at top right corner
-                self.phase_cursor_label.setPos(self.settings.stop_frequency * 0.98, self.phase_plot_widget.getViewBox().viewRange()[1][1] * 0.98)
+                self.phase_text_label.setText(phase_text)
                 
         except Exception as e:
             logging.error(f"Error in mouse move handler: {e}", exc_info=True)
