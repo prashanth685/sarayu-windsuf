@@ -188,7 +188,7 @@ class ToolBar(QToolBar):
                                 self.parent.tree_view.tree.setCurrentItem(model_item)
                                 model_item.setBackground(0, QColor("#4a90e2"))
                                 self.parent.tree_view.model_selected.emit(first_model)
-                                self.parent.console.append_to_console(f"Auto-selected model for feature {feature_name}: {first_model}")
+                                # self.parent.console.append_to_console(f"Auto-selected model for feature {feature_name}: {first_model}")
                                 break
                     selected_model = first_model
         if feature_name in model_based_features:
@@ -217,7 +217,7 @@ class ToolBar(QToolBar):
                                                 channel_item.setBackground(0, QColor("#28a745"))
                                                 self.parent.tree_view.selected_channel_item = channel_item
                                                 self.parent.tree_view.channel_selected.emit(selected_model, tag_name)
-                                                self.parent.console.append_to_console(f"Auto-selected channel for feature {feature_name}: {first_channel}")
+                                                # self.parent.console.append_to_console(f"Auto-selected channel for feature {feature_name}: {first_channel}")
                                                 break
                                         break
                             if self.parent.tree_view.get_selected_channel():

@@ -17,7 +17,7 @@ class MQTTPublisher(QObject):
 
         # Frequency sweep parameters
         self.freq_start = 1
-        self.freq_end = 500
+        self.freq_end = 300
         self.freq_step = 1
         self.frequency = self.freq_start
         self.sweep_direction = 1  # 1 = increasing, -1 = decreasing
